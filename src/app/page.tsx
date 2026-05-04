@@ -216,15 +216,15 @@ export default function Home() {
             skin, schedule, and goals.
           </p>
         </div>
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid gap-7 lg:grid-cols-3">
           {services.map((service, index) => (
             <details
               key={service.title}
               className="group overflow-hidden rounded-[2.4rem] border border-[#dfcfb9] bg-[#fffaf2]/75 shadow-sm transition open:bg-[#fffaf2] open:shadow-2xl open:shadow-[#8b765d]/12"
               open={index === 0}
             >
-              <summary className="cursor-pointer list-none p-5 marker:hidden">
-                <div className="relative mb-6 h-64 overflow-hidden rounded-[2rem] bg-[#d9c7ae]">
+              <summary className="cursor-pointer list-none p-5 marker:hidden md:p-6">
+                <div className="relative mb-6 h-80 overflow-hidden rounded-[2rem] bg-[#d9c7ae] md:h-96 lg:h-[28rem]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_20%,rgba(255,250,242,0.92),transparent_24%),radial-gradient(circle_at_76%_18%,rgba(231,198,121,0.48),transparent_18%),linear-gradient(145deg,#f8f0e5,#d8c5a9_48%,#5c5045)]" />
                   {service.visual === "cryo" ? (
                     <>
@@ -240,7 +240,7 @@ export default function Home() {
                   ) : (
                     <TreatmentVisual visual={service.visual} />
                   )}
-                  <div className="absolute inset-x-6 bottom-6 rounded-[1.4rem] bg-[#111820]/88 p-5 text-[#fffaf2]">
+                  <div className="absolute inset-x-6 bottom-6 rounded-[1.4rem] bg-[#111820]/82 p-4 text-[#fffaf2] backdrop-blur-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
                       {service.eyebrow}
                     </p>
