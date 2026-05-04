@@ -263,7 +263,7 @@ export default function Home() {
                   ) : (
                     <TreatmentVisual visual={service.visual} />
                   )}
-                  <div className="absolute inset-x-6 bottom-6 rounded-[1.4rem] bg-[#111820]/82 p-4 text-[#fffaf2] backdrop-blur-sm">
+                  <div className="absolute inset-x-6 bottom-6 flex min-h-28 flex-col justify-center rounded-[1.4rem] bg-[#111820]/82 p-4 text-[#fffaf2] backdrop-blur-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
                       {service.eyebrow}
                     </p>
