@@ -203,7 +203,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="absolute -bottom-8 -left-6 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15">
+          <div className="absolute -bottom-8 left-4 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15 md:-left-6">
             <p className="text-4xl font-semibold">20+</p>
             <p className="mt-1 text-sm text-[#776b5f]">years experience</p>
           </div>
