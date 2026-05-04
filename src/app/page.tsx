@@ -121,10 +121,10 @@ function TreatmentVisual({ visual }: { visual: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-1 lg:px-8">
         <a
           href="#"
-          className="relative h-40 w-96 md:h-48 md:w-[30rem]"
+          className="relative -ml-10 h-40 w-96 md:-ml-14 md:h-48 md:w-[30rem]"
           aria-label="L'Beau Clinique home"
         >
           <Image
@@ -132,7 +132,7 @@ export default function Home() {
             alt=""
             fill
             sizes="144px"
-            className="object-contain"
+            className="object-contain object-left"
             priority
           />
         </a>
@@ -149,7 +149,7 @@ export default function Home() {
         </a>
       </nav>
 
-      <section className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 pb-24 pt-10 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pt-20">
+      <section className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 pb-24 pt-0 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pt-4">
         <div className="absolute left-1/2 top-4 -z-0 h-80 w-80 rounded-full bg-[#d6b06f]/25 blur-3xl" />
         <div className="relative z-10">
           <p className="mb-5 inline-flex rounded-full border border-[#dfcfb9] bg-[#fffaf2]/75 px-4 py-2 text-sm font-medium text-[#806847]">
