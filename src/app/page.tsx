@@ -121,10 +121,10 @@ function TreatmentVisual({ visual }: { visual: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
-      <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-1 lg:px-8">
+      <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-1 sm:px-6 lg:px-8">
         <a
           href="#"
-          className="relative -ml-4 h-40 w-96 md:-ml-6 md:h-48 md:w-[30rem]"
+          className="relative -ml-3 h-24 w-56 sm:h-32 sm:w-72 md:-ml-6 md:h-48 md:w-[30rem]"
           aria-label="L'Beau Clinique home"
         >
           <Image
@@ -143,7 +143,7 @@ export default function Home() {
         </div>
         <a
           href="tel:+4407717096809"
-          className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2] shadow-lg shadow-[#b9945b]/20 transition hover:bg-[#3a3029]"
+          className="shrink-0 whitespace-nowrap rounded-full bg-[#111820] px-3 py-2 text-xs font-semibold text-[#fffaf2] shadow-lg shadow-[#b9945b]/20 transition hover:bg-[#3a3029] sm:px-4 sm:py-2.5 md:px-5 md:py-3 md:text-sm"
         >
           Book now
         </a>
