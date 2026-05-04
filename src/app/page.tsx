@@ -2,6 +2,7 @@ const services = [
   {
     eyebrow: "Cryo 21",
     title: "Lipolysis Fat Freezing",
+    visual: "cryo",
     description:
       "Targeted cold therapy for lifting, sculpting, firming, and non-invasive fat reduction.",
     price: "Lift + freeze",
@@ -17,6 +18,7 @@ const services = [
   {
     eyebrow: "Touch Skin 21",
     title: "Skin Renewal",
+    visual: "touch",
     description:
       "Advanced skin-focused treatments for lifting, texture, scarring, pigmentation, and delicate eye areas.",
     price: "Repair + refine",
@@ -36,6 +38,7 @@ const services = [
   {
     eyebrow: "Face 21",
     title: "Thermal Energy Sculpt",
+    visual: "face",
     description:
       "Thermal energy, micro current, and pH21 care to lift, firm, tone, sculpt, and volumise.",
     price: "Tone + volumise",
@@ -72,6 +75,45 @@ const team = [
   "Debora, luxury nail, brow and lash expert",
   "Janis, beauty and personal care specialist",
 ];
+
+function TreatmentVisual({ visual }: { visual: string }) {
+  if (visual === "cryo") {
+    return (
+      <div aria-hidden="true" className="absolute inset-0">
+        <div className="absolute left-9 top-8 h-36 w-28 rounded-full border border-[#fffaf2]/75 shadow-[0_0_34px_rgba(255,250,242,0.34)]" />
+        <div className="absolute left-16 top-16 h-20 w-20 rounded-full border border-[#d8b66f]/70" />
+        <div className="absolute bottom-20 right-10 h-28 w-28 rounded-full bg-[#111820]/20 blur-sm" />
+        <div className="absolute bottom-16 right-14 h-28 w-px rotate-[24deg] bg-[#fffaf2]/80 shadow-[0_0_24px_8px_rgba(255,250,242,0.24)]" />
+        <div className="absolute bottom-20 right-24 h-24 w-px rotate-[42deg] bg-[#fffaf2]/55" />
+        <div className="absolute right-8 top-10 h-16 w-16 rounded-full border border-[#111820]/25" />
+      </div>
+    );
+  }
+
+  if (visual === "touch") {
+    return (
+      <div aria-hidden="true" className="absolute inset-0">
+        <div className="absolute left-8 top-9 h-24 w-40 rounded-full bg-[#fffaf2]/30 blur-md" />
+        <div className="absolute left-10 top-14 h-20 w-40 rounded-[999px] border border-[#fffaf2]/70" />
+        <div className="absolute left-16 top-20 h-12 w-28 rounded-[999px] border border-[#d8b66f]/70" />
+        <div className="absolute bottom-24 right-10 h-28 w-28 rounded-full border border-[#fffaf2]/70 shadow-[0_0_30px_rgba(255,250,242,0.3)]" />
+        <div className="absolute bottom-14 right-16 h-32 w-px -rotate-12 bg-[#fffaf2]/70" />
+        <div className="absolute bottom-16 right-28 h-16 w-px rotate-12 bg-[#111820]/30" />
+      </div>
+    );
+  }
+
+  return (
+    <div aria-hidden="true" className="absolute inset-0">
+      <div className="absolute left-10 top-8 h-40 w-28 rounded-[55%_45%_48%_52%] border border-[#fffaf2]/75 shadow-[0_0_35px_rgba(255,250,242,0.32)]" />
+      <div className="absolute left-20 top-20 h-14 w-12 rounded-full border border-[#d8b66f]/70" />
+      <div className="absolute bottom-14 right-10 h-36 w-36 rounded-full border border-[#111820]/25" />
+      <div className="absolute bottom-24 right-14 h-20 w-20 rounded-full border border-[#fffaf2]/70" />
+      <div className="absolute bottom-16 right-28 h-28 w-px rotate-[32deg] bg-[#fffaf2]/75 shadow-[0_0_24px_8px_rgba(255,250,242,0.22)]" />
+      <div className="absolute bottom-20 right-20 h-28 w-px rotate-[52deg] bg-[#d8b66f]/70" />
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -184,12 +226,7 @@ export default function Home() {
               <summary className="cursor-pointer list-none p-5 marker:hidden">
                 <div className="relative mb-6 h-64 overflow-hidden rounded-[2rem] bg-[#d9c7ae]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_20%,rgba(255,250,242,0.92),transparent_24%),radial-gradient(circle_at_76%_18%,rgba(231,198,121,0.48),transparent_18%),linear-gradient(145deg,#f8f0e5,#d8c5a9_48%,#5c5045)]" />
-                  <div className="absolute right-6 top-7 text-8xl font-semibold leading-none text-[#b9945b]/45 drop-shadow-[0_0_22px_rgba(185,148,91,0.45)]">
-                    {index + 1}
-                  </div>
-                  <div className="absolute left-8 top-8 h-28 w-28 rounded-full border border-[#fffaf2]/70 shadow-[0_0_35px_rgba(255,250,242,0.35)]" />
-                  <div className="absolute bottom-8 left-10 h-24 w-px rotate-12 bg-[#fffaf2]/70 shadow-[0_0_26px_8px_rgba(255,250,242,0.22)]" />
-                  <div className="absolute bottom-9 right-8 h-16 w-16 rounded-full border border-[#111820]/25" />
+                  <TreatmentVisual visual={service.visual} />
                   <div className="absolute inset-x-6 bottom-6 rounded-[1.4rem] bg-[#111820]/88 p-5 text-[#fffaf2]">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
                       {service.eyebrow}
