@@ -122,8 +122,19 @@ export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
-        <a href="#" className="text-xl font-semibold tracking-[0.28em] text-[#6f5638]">
-          L&apos;BEAU
+        <a
+          href="#"
+          className="relative h-14 w-36 overflow-hidden rounded-full border border-[#dfcfb9]/80 bg-[#fffaf2]/65 shadow-sm backdrop-blur-md"
+          aria-label="L'Beau Clinique home"
+        >
+          <Image
+            src="/logo-lisa.png"
+            alt=""
+            fill
+            sizes="144px"
+            className="object-contain p-3"
+            priority
+          />
         </a>
         <div className="hidden items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
           <a href="#treatments">Treatments</a>
