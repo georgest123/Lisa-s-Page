@@ -128,7 +128,7 @@ export default function Home() {
           aria-label="L'Beau Clinique home"
         >
           <Image
-            src="/logo-lisa.png"
+            src="/Logo Design Template - Rose Gold.png"
             alt=""
             fill
             sizes="144px"
