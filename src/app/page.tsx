@@ -401,24 +401,26 @@ export default function Home() {
         id="contact"
         className="mx-auto w-full max-w-7xl px-6 pb-12 pt-20 lg:px-8"
       >
-        <div className="grid overflow-hidden rounded-[3rem] bg-[#b9945b] text-[#17130f] lg:grid-cols-[1fr_0.85fr]">
-          <div className="p-8 md:p-12">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#4b3a22]">
+        <div className="grid overflow-hidden rounded-[3rem] border border-[#dfcfb9]/80 bg-[#fffaf2]/55 text-[#17130f] shadow-2xl shadow-[#8b765d]/10 backdrop-blur-xl lg:grid-cols-[1fr_0.85fr]">
+          <div className="relative overflow-hidden p-8 md:p-12">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#d8b66f]/18 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-[#fffaf2]/55 blur-2xl" />
+            <p className="relative text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7a45]">
               Book your consultation
             </p>
-            <h2 className="mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
+            <h2 className="relative mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
               Ready for your sculpt, strength and glow plan?
             </h2>
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <div className="relative mt-8 flex flex-col gap-4 sm:flex-row">
               <a
                 href="tel:+4407717096809"
-                className="rounded-full bg-[#fffaf2] px-7 py-4 text-center font-semibold text-[#17130f]"
+                className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2] shadow-lg shadow-[#111820]/10"
               >
                 Call 07717 096809
               </a>
               <a
                 href="mailto:lbeauclinique@gmail.com"
-                className="rounded-full border border-[#fffaf2]/45 px-7 py-4 text-center font-semibold text-[#17130f]"
+                className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"
               >
                 Email the clinic
               </a>
