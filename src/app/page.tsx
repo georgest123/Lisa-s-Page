@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const services = [
   {
     eyebrow: "Cryo 21",
@@ -166,29 +168,27 @@ export default function Home() {
         </div>
 
         <div className="relative z-10">
-          <div className="relative mx-auto aspect-[4/5] max-w-lg overflow-hidden rounded-[3rem] bg-[#d9c7ae] p-5 shadow-2xl shadow-[#8b765d]/20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(231,198,121,0.52),transparent_18%),radial-gradient(circle_at_28%_16%,rgba(255,250,242,0.9),transparent_25%),linear-gradient(145deg,#f8f0e5,#cdb99d_48%,#4b4138)]" />
-            <div className="absolute right-10 top-16 text-[12rem] font-semibold leading-none text-[#b9945b]/55 drop-shadow-[0_0_26px_rgba(185,148,91,0.5)]">
-              L
+          <div className="relative mx-auto aspect-[4/5] max-w-lg overflow-hidden rounded-[3rem] bg-[#d9c7ae] p-4 shadow-2xl shadow-[#8b765d]/20">
+            <Image
+              src="/lisa-hero.jpg"
+              alt="Lisa at L'Beau Clinique"
+              fill
+              priority
+              sizes="(min-width: 1024px) 42vw, 90vw"
+              className="object-cover object-[50%_38%]"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.03),rgba(17,24,32,0.12)),radial-gradient(circle_at_78%_22%,rgba(216,182,111,0.28),transparent_24%)]" />
+            <div className="absolute inset-4 rounded-[2.35rem] border border-[#fffaf2]/55" />
+            <div className="absolute right-8 top-8 rounded-full bg-[#fffaf2]/85 px-5 py-3 text-sm font-semibold text-[#6f5638] shadow-lg shadow-[#111820]/10">
+              Cryo 21 + Face 21
             </div>
-            <div className="absolute bottom-20 right-9 h-32 w-px bg-[#fffaf2]/70 shadow-[0_0_28px_10px_rgba(255,250,242,0.28)]" />
-            <div className="absolute bottom-16 right-5 h-16 w-16 rounded-full border border-[#fffaf2]/60" />
-            <div className="absolute bottom-9 right-12 h-28 w-px rotate-12 bg-[#5f554a]/50" />
-            <div className="relative flex h-full flex-col justify-between rounded-[2.3rem] border border-[#fffaf2]/55 bg-[#fffaf2]/18 p-8 backdrop-blur-sm">
-              <div className="self-end rounded-full bg-[#fffaf2]/80 px-5 py-3 text-sm font-semibold text-[#6f5638]">
-                Cryo 21 + Face 21
-              </div>
-              <div>
-                <div className="mb-5 h-44 rounded-full bg-[#fffaf2]/35 blur-xl" />
-                <div className="rounded-[2rem] bg-[#111820]/88 p-6 text-[#fffaf2] shadow-2xl">
-                  <p className="text-sm uppercase tracking-[0.3em] text-[#d8b66f]">
-                    Signature result
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold">
-                    Bespoke plans for body confidence and radiant skin.
-                  </p>
-                </div>
-              </div>
+            <div className="absolute inset-x-8 bottom-8 rounded-[2rem] bg-[#111820]/88 p-6 text-[#fffaf2] shadow-2xl backdrop-blur-sm">
+              <p className="text-sm uppercase tracking-[0.3em] text-[#d8b66f]">
+                Signature result
+              </p>
+              <p className="mt-3 text-3xl font-semibold">
+                Bespoke plans for body confidence and radiant skin.
+              </p>
             </div>
           </div>
           <div className="absolute -bottom-8 -left-6 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15">
