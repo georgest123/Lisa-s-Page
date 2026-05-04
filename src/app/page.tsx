@@ -322,6 +322,16 @@ export default function Home() {
             non-invasive, high-quality treatments that help clients feel
             supported, empowered, and beautifully confident.
           </p>
+          <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[2rem] border border-[#fffaf2]/20 bg-[#d9c7ae]">
+            <Image
+              src="/clini-21-lisa.jpeg"
+              alt="Lisa inside L'Beau Clinique"
+              fill
+              sizes="(min-width: 1024px) 34vw, 90vw"
+              className="object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0),rgba(17,24,32,0.18))]" />
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {benefits.map((benefit) => (
