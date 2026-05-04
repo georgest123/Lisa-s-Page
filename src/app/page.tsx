@@ -121,7 +121,7 @@ function TreatmentVisual({ visual }: { visual: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-1 lg:px-8">
+      <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-1 lg:px-8">
         <a
           href="#"
           className="relative -ml-4 h-40 w-96 md:-ml-6 md:h-48 md:w-[30rem]"
@@ -136,7 +136,7 @@ export default function Home() {
             priority
           />
         </a>
-        <div className="hidden items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
+        <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
           <a href="#treatments">Treatments</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
