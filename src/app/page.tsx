@@ -42,34 +42,34 @@ const team = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fbf4ee] text-[#241511]">
+    <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
-        <a href="#" className="text-xl font-semibold tracking-[0.28em]">
+        <a href="#" className="text-xl font-semibold tracking-[0.28em] text-[#6f5638]">
           L&apos;BEAU
         </a>
-        <div className="hidden items-center gap-8 text-sm font-medium text-[#76584f] md:flex">
+        <div className="hidden items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
           <a href="#treatments">Treatments</a>
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </div>
         <a
           href="tel:+4407717096809"
-          className="rounded-full bg-[#241511] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#9c6f61]/20 transition hover:bg-[#5a332c]"
+          className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2] shadow-lg shadow-[#b9945b]/20 transition hover:bg-[#3a3029]"
         >
           Book now
         </a>
       </nav>
 
       <section className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 pb-24 pt-10 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pt-20">
-        <div className="absolute left-1/2 top-4 -z-0 h-80 w-80 rounded-full bg-[#e8bdae]/30 blur-3xl" />
+        <div className="absolute left-1/2 top-4 -z-0 h-80 w-80 rounded-full bg-[#d6b06f]/25 blur-3xl" />
         <div className="relative z-10">
-          <p className="mb-5 inline-flex rounded-full border border-[#e2c5bb] bg-white/60 px-4 py-2 text-sm font-medium text-[#8a5b4f]">
+          <p className="mb-5 inline-flex rounded-full border border-[#dfcfb9] bg-[#fffaf2]/75 px-4 py-2 text-sm font-medium text-[#806847]">
             Aesthetic beauty and body sculpting in Milton Keynes
           </p>
-          <h1 className="max-w-4xl text-6xl font-semibold leading-[0.92] tracking-[-0.06em] text-[#241511] md:text-8xl">
+          <h1 className="max-w-4xl text-6xl font-semibold leading-[0.92] tracking-[-0.06em] text-[#211a16] md:text-8xl">
             Sculpt, strengthen and glow with modern non-invasive care.
           </h1>
-          <p className="mt-8 max-w-2xl text-lg leading-8 text-[#76584f]">
+          <p className="mt-8 max-w-2xl text-lg leading-8 text-[#776b5f]">
             L&apos;Beau Clinique blends Cryo21 fat freezing, EMS training, and
             aesthetic wellness treatments in a serene private clinic led by Lisa
             and her expert team.
@@ -77,13 +77,13 @@ export default function Home() {
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <a
               href="mailto:lbeauclinique@gmail.com?subject=Book%20a%20consultation"
-              className="rounded-full bg-[#9b5f53] px-8 py-4 text-center font-semibold text-white shadow-xl shadow-[#9b5f53]/25 transition hover:-translate-y-0.5 hover:bg-[#7e473e]"
+              className="rounded-full bg-[#b9945b] px-8 py-4 text-center font-semibold text-[#17130f] shadow-xl shadow-[#b9945b]/30 transition hover:-translate-y-0.5 hover:bg-[#d0ae72]"
             >
               Book consultation
             </a>
             <a
               href="#treatments"
-              className="rounded-full border border-[#d8b7aa] bg-white/60 px-8 py-4 text-center font-semibold text-[#5e3c35] transition hover:-translate-y-0.5 hover:bg-white"
+              className="rounded-full border border-[#d9c8ac] bg-[#fffaf2]/70 px-8 py-4 text-center font-semibold text-[#6f5638] transition hover:-translate-y-0.5 hover:bg-[#fffaf2]"
             >
               Explore treatments
             </a>
@@ -91,16 +91,22 @@ export default function Home() {
         </div>
 
         <div className="relative z-10">
-          <div className="relative mx-auto aspect-[4/5] max-w-lg overflow-hidden rounded-[3rem] bg-[#d9b1a6] p-5 shadow-2xl shadow-[#9c6f61]/20">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.72),transparent_28%),linear-gradient(145deg,#f6ddd3,#b9897d_48%,#5f3932)]" />
-            <div className="relative flex h-full flex-col justify-between rounded-[2.3rem] border border-white/45 bg-white/20 p-8 backdrop-blur-sm">
-              <div className="self-end rounded-full bg-white/70 px-5 py-3 text-sm font-semibold text-[#6f473e]">
+          <div className="relative mx-auto aspect-[4/5] max-w-lg overflow-hidden rounded-[3rem] bg-[#d9c7ae] p-5 shadow-2xl shadow-[#8b765d]/20">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_22%,rgba(231,198,121,0.52),transparent_18%),radial-gradient(circle_at_28%_16%,rgba(255,250,242,0.9),transparent_25%),linear-gradient(145deg,#f8f0e5,#cdb99d_48%,#4b4138)]" />
+            <div className="absolute right-10 top-16 text-[12rem] font-semibold leading-none text-[#b9945b]/55 drop-shadow-[0_0_26px_rgba(185,148,91,0.5)]">
+              L
+            </div>
+            <div className="absolute bottom-20 right-9 h-32 w-px bg-[#fffaf2]/70 shadow-[0_0_28px_10px_rgba(255,250,242,0.28)]" />
+            <div className="absolute bottom-16 right-5 h-16 w-16 rounded-full border border-[#fffaf2]/60" />
+            <div className="absolute bottom-9 right-12 h-28 w-px rotate-12 bg-[#5f554a]/50" />
+            <div className="relative flex h-full flex-col justify-between rounded-[2.3rem] border border-[#fffaf2]/55 bg-[#fffaf2]/18 p-8 backdrop-blur-sm">
+              <div className="self-end rounded-full bg-[#fffaf2]/80 px-5 py-3 text-sm font-semibold text-[#6f5638]">
                 Cryo21 + EMS
               </div>
               <div>
-                <div className="mb-5 h-44 rounded-full bg-white/30 blur-xl" />
-                <div className="rounded-[2rem] bg-[#241511]/85 p-6 text-white shadow-2xl">
-                  <p className="text-sm uppercase tracking-[0.3em] text-[#e8c8bd]">
+                <div className="mb-5 h-44 rounded-full bg-[#fffaf2]/35 blur-xl" />
+                <div className="rounded-[2rem] bg-[#111820]/88 p-6 text-[#fffaf2] shadow-2xl">
+                  <p className="text-sm uppercase tracking-[0.3em] text-[#d8b66f]">
                     Signature result
                   </p>
                   <p className="mt-3 text-3xl font-semibold">
@@ -110,9 +116,9 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="absolute -bottom-8 -left-6 rounded-[2rem] bg-white p-5 shadow-xl shadow-[#9c6f61]/15">
+          <div className="absolute -bottom-8 -left-6 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15">
             <p className="text-4xl font-semibold">20+</p>
-            <p className="mt-1 text-sm text-[#76584f]">years experience</p>
+            <p className="mt-1 text-sm text-[#776b5f]">years experience</p>
           </div>
         </div>
       </section>
@@ -123,14 +129,14 @@ export default function Home() {
       >
         <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b5f53]">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7a45]">
               Treatments
             </p>
             <h2 className="mt-3 max-w-2xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
               Advanced technology, soft-touch care.
             </h2>
           </div>
-          <p className="max-w-md text-[#76584f]">
+          <p className="max-w-md text-[#776b5f]">
             Every course is personalised during consultation to match your body,
             skin, schedule, and goals.
           </p>
@@ -139,13 +145,13 @@ export default function Home() {
           {services.map((service) => (
             <article
               key={service.title}
-              className="group rounded-[2rem] border border-[#ead2c8] bg-white/70 p-7 shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-[#9c6f61]/10"
+              className="group rounded-[2rem] border border-[#dfcfb9] bg-[#fffaf2]/72 p-7 shadow-sm transition hover:-translate-y-1 hover:bg-[#fffaf2] hover:shadow-xl hover:shadow-[#8b765d]/10"
             >
-              <p className="mb-8 inline-flex rounded-full bg-[#f4e1d9] px-4 py-2 text-sm font-semibold text-[#8a5b4f]">
+              <p className="mb-8 inline-flex rounded-full bg-[#eee0ca] px-4 py-2 text-sm font-semibold text-[#806847]">
                 {service.price}
               </p>
               <h3 className="text-2xl font-semibold">{service.title}</h3>
-              <p className="mt-4 leading-7 text-[#76584f]">
+              <p className="mt-4 leading-7 text-[#776b5f]">
                 {service.description}
               </p>
             </article>
@@ -157,14 +163,14 @@ export default function Home() {
         id="about"
         className="mx-auto grid w-full max-w-7xl gap-8 px-6 py-20 lg:grid-cols-[0.9fr_1.1fr] lg:px-8"
       >
-        <div className="rounded-[2.5rem] bg-[#241511] p-8 text-white md:p-10">
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#e8c8bd]">
+        <div className="rounded-[2.5rem] bg-[#111820] p-8 text-[#fffaf2] md:p-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
             Meet Lisa
           </p>
           <h2 className="mt-5 text-4xl font-semibold tracking-[-0.04em] md:text-5xl">
             Feeling fantastic starts from within.
           </h2>
-          <p className="mt-6 leading-8 text-[#ead9d4]">
+          <p className="mt-6 leading-8 text-[#e8ddcf]">
             Founder Lisa created L&apos;Beau Clinique as a peaceful space for
             non-invasive, high-quality treatments that help clients feel
             supported, empowered, and beautifully confident.
@@ -174,9 +180,9 @@ export default function Home() {
           {benefits.map((benefit) => (
             <div
               key={benefit}
-              className="rounded-[2rem] border border-[#ead2c8] bg-white/65 p-6"
+              className="rounded-[2rem] border border-[#dfcfb9] bg-[#fffaf2]/65 p-6"
             >
-              <div className="mb-6 h-10 w-10 rounded-full bg-[#9b5f53]" />
+              <div className="mb-6 h-10 w-10 rounded-full bg-[#b9945b] shadow-[0_0_24px_rgba(185,148,91,0.35)]" />
               <p className="text-lg font-semibold leading-7">{benefit}</p>
             </div>
           ))}
@@ -184,16 +190,16 @@ export default function Home() {
       </section>
 
       <section className="mx-auto w-full max-w-7xl px-6 py-20 lg:px-8">
-        <div className="rounded-[3rem] bg-white p-6 shadow-2xl shadow-[#9c6f61]/10 md:p-10">
+        <div className="rounded-[3rem] bg-[#fffaf2] p-6 shadow-2xl shadow-[#8b765d]/10 md:p-10">
           <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b5f53]">
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7a45]">
                 Cryo21 journey
               </p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-0.04em]">
                 Body sculpting without surgery or downtime.
               </h2>
-              <p className="mt-5 leading-8 text-[#76584f]">
+              <p className="mt-5 leading-8 text-[#776b5f]">
                 Controlled cooling targets areas such as the tummy, thighs,
                 jawline, arms, back, and cellulite. Results build as the body
                 naturally eliminates treated fat cells.
@@ -201,8 +207,8 @@ export default function Home() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {journey.map((step, index) => (
-                <div key={step} className="rounded-[1.6rem] bg-[#fbf4ee] p-6">
-                  <span className="text-sm font-semibold text-[#9b5f53]">
+                <div key={step} className="rounded-[1.6rem] bg-[#f1e6d6] p-6">
+                  <span className="text-sm font-semibold text-[#9b7a45]">
                     0{index + 1}
                   </span>
                   <p className="mt-6 text-2xl font-semibold">{step}</p>
@@ -215,7 +221,7 @@ export default function Home() {
 
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-6 py-20 lg:grid-cols-2 lg:px-8">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b5f53]">
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7a45]">
             The team
           </p>
           <h2 className="mt-3 text-4xl font-semibold tracking-[-0.04em] md:text-5xl">
@@ -226,7 +232,7 @@ export default function Home() {
           {team.map((person) => (
             <div
               key={person}
-              className="rounded-full border border-[#ead2c8] bg-white/70 px-6 py-4 font-medium text-[#5e3c35]"
+              className="rounded-full border border-[#dfcfb9] bg-[#fffaf2]/72 px-6 py-4 font-medium text-[#6f5638]"
             >
               {person}
             </div>
@@ -238,9 +244,9 @@ export default function Home() {
         id="contact"
         className="mx-auto w-full max-w-7xl px-6 pb-12 pt-20 lg:px-8"
       >
-        <div className="grid overflow-hidden rounded-[3rem] bg-[#9b5f53] text-white lg:grid-cols-[1fr_0.85fr]">
+        <div className="grid overflow-hidden rounded-[3rem] bg-[#b9945b] text-[#17130f] lg:grid-cols-[1fr_0.85fr]">
           <div className="p-8 md:p-12">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#f4dcd3]">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#4b3a22]">
               Book your consultation
             </p>
             <h2 className="mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
@@ -249,24 +255,24 @@ export default function Home() {
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <a
                 href="tel:+4407717096809"
-                className="rounded-full bg-white px-7 py-4 text-center font-semibold text-[#7e473e]"
+                className="rounded-full bg-[#fffaf2] px-7 py-4 text-center font-semibold text-[#17130f]"
               >
                 Call 07717 096809
               </a>
               <a
                 href="mailto:lbeauclinique@gmail.com"
-                className="rounded-full border border-white/35 px-7 py-4 text-center font-semibold text-white"
+                className="rounded-full border border-[#fffaf2]/45 px-7 py-4 text-center font-semibold text-[#17130f]"
               >
                 Email the clinic
               </a>
             </div>
           </div>
-          <div className="bg-[#241511] p-8 md:p-12">
+          <div className="bg-[#111820] p-8 text-[#fffaf2] md:p-12">
             <h3 className="text-2xl font-semibold">Visit L&apos;Beau Clinique</h3>
-            <p className="mt-4 leading-7 text-[#ead9d4]">
+            <p className="mt-4 leading-7 text-[#e8ddcf]">
               2 Turpyn Court, Woughton on the Green, Milton Keynes MK6 3BW
             </p>
-            <dl className="mt-8 grid gap-3 text-sm text-[#ead9d4]">
+            <dl className="mt-8 grid gap-3 text-sm text-[#e8ddcf]">
               <div className="flex justify-between gap-6">
                 <dt>Mon</dt>
                 <dd>09:30 - 19:00</dd>
