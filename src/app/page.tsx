@@ -1,4 +1,5 @@
 import Image from "next/image";
+import skinRenewalImage from "../../skin-renewal.jpg";
 
 const services = [
   {
@@ -231,6 +232,17 @@ export default function Home() {
                       <Image
                         src="/lipolysis.png"
                         alt="Lipolysis fat freezing treatment"
+                        fill
+                        sizes="(min-width: 1024px) 28vw, 90vw"
+                        className="object-cover object-center"
+                      />
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
+                    </>
+                  ) : service.visual === "touch" ? (
+                    <>
+                      <Image
+                        src={skinRenewalImage}
+                        alt="Touch Skin 21 skin renewal treatment"
                         fill
                         sizes="(min-width: 1024px) 28vw, 90vw"
                         className="object-cover object-center"
