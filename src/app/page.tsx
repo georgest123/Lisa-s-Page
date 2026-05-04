@@ -124,7 +124,7 @@ export default function Home() {
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 lg:px-8">
         <a
           href="#"
-          className="relative h-14 w-36 overflow-hidden rounded-full border border-[#dfcfb9]/80 bg-[#fffaf2]/65 shadow-sm backdrop-blur-md"
+          className="relative h-20 w-48 md:h-24 md:w-60"
           aria-label="L'Beau Clinique home"
         >
           <Image
@@ -132,7 +132,7 @@ export default function Home() {
             alt=""
             fill
             sizes="144px"
-            className="object-contain p-3"
+            className="object-contain"
             priority
           />
         </a>
