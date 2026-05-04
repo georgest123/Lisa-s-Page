@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "L'Beau Clinique | Modern Beauty & Body Sculpting",
+  title: "L'Beau Clinique | Cryo 21, Touch Skin 21 & Face 21",
   description:
-    "Modern aesthetic beauty, Cryo21 body sculpting, EMS training, and wellness treatments in Milton Keynes.",
+    "Modern Cryo 21 fat freezing, Touch Skin 21 skin repair, and Face 21 lifting treatments in Milton Keynes.",
 };
 
 export default function RootLayout({

@@ -1,21 +1,54 @@
 const services = [
   {
-    title: "Cryo21 Sculpt",
+    eyebrow: "Cryo 21",
+    title: "Lipolysis Fat Freezing",
     description:
-      "Non-invasive fat freezing for stubborn areas, facial contouring, cellulite smoothing, and skin confidence.",
-    price: "from £60",
+      "Targeted cold therapy for lifting, sculpting, firming, and non-invasive fat reduction.",
+    price: "Lift + freeze",
+    details: [
+      "Full face lift",
+      "Neck lift",
+      "Jawline sculpting",
+      "Lifting and firming",
+      "Fat freezing",
+      "Cellulite fat freezing",
+    ],
   },
   {
-    title: "EMS Training",
+    eyebrow: "Touch Skin 21",
+    title: "Skin Renewal",
     description:
-      "A focused 20-minute Electro Muscle Stimulation session to tone, strengthen, and support busy lifestyles.",
-    price: "20 min sessions",
+      "Advanced skin-focused treatments for lifting, texture, scarring, pigmentation, and delicate eye areas.",
+    price: "Repair + refine",
+    details: [
+      "Eyelid lift",
+      "Eye bag removal",
+      "Face and neck lift",
+      "Acne",
+      "Scars and post-operation marks",
+      "Stretch marks",
+      "Lines and wrinkles",
+      "Smokers lines",
+      "Skin tags",
+      "Age and sun spots",
+    ],
   },
   {
-    title: "Aesthetics & Wellness",
+    eyebrow: "Face 21",
+    title: "Thermal Energy Sculpt",
     description:
-      "Results-led aesthetic treatments delivered with a calm, holistic approach to help you glow from within.",
-    price: "bespoke plans",
+      "Thermal energy, micro current, and pH21 care to lift, firm, tone, sculpt, and volumise.",
+    price: "Tone + volumise",
+    details: [
+      "Thermal energy",
+      "Micro current",
+      "pH21 treatment care",
+      "Lift",
+      "Firm",
+      "Tone",
+      "Sculpt",
+      "Volumise",
+    ],
   },
 ];
 
@@ -70,9 +103,9 @@ export default function Home() {
             Sculpt, strengthen and glow with modern non-invasive care.
           </h1>
           <p className="mt-8 max-w-2xl text-lg leading-8 text-[#776b5f]">
-            L&apos;Beau Clinique blends Cryo21 fat freezing, EMS training, and
-            aesthetic wellness treatments in a serene private clinic led by Lisa
-            and her expert team.
+            L&apos;Beau Clinique blends Cryo 21 body sculpting, Touch Skin
+            21 renewal, and Face 21 lifting treatments in a serene private
+            clinic led by Lisa and her expert team.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
             <a
@@ -101,7 +134,7 @@ export default function Home() {
             <div className="absolute bottom-9 right-12 h-28 w-px rotate-12 bg-[#5f554a]/50" />
             <div className="relative flex h-full flex-col justify-between rounded-[2.3rem] border border-[#fffaf2]/55 bg-[#fffaf2]/18 p-8 backdrop-blur-sm">
               <div className="self-end rounded-full bg-[#fffaf2]/80 px-5 py-3 text-sm font-semibold text-[#6f5638]">
-                Cryo21 + EMS
+                Cryo 21 + Face 21
               </div>
               <div>
                 <div className="mb-5 h-44 rounded-full bg-[#fffaf2]/35 blur-xl" />
@@ -141,20 +174,61 @@ export default function Home() {
             skin, schedule, and goals.
           </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {services.map((service) => (
-            <article
+        <div className="grid gap-5 lg:grid-cols-3">
+          {services.map((service, index) => (
+            <details
               key={service.title}
-              className="group rounded-[2rem] border border-[#dfcfb9] bg-[#fffaf2]/72 p-7 shadow-sm transition hover:-translate-y-1 hover:bg-[#fffaf2] hover:shadow-xl hover:shadow-[#8b765d]/10"
+              className="group overflow-hidden rounded-[2.4rem] border border-[#dfcfb9] bg-[#fffaf2]/75 shadow-sm transition open:bg-[#fffaf2] open:shadow-2xl open:shadow-[#8b765d]/12"
+              open={index === 0}
             >
-              <p className="mb-8 inline-flex rounded-full bg-[#eee0ca] px-4 py-2 text-sm font-semibold text-[#806847]">
-                {service.price}
-              </p>
-              <h3 className="text-2xl font-semibold">{service.title}</h3>
-              <p className="mt-4 leading-7 text-[#776b5f]">
-                {service.description}
-              </p>
-            </article>
+              <summary className="cursor-pointer list-none p-5 marker:hidden">
+                <div className="relative mb-6 h-64 overflow-hidden rounded-[2rem] bg-[#d9c7ae]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_20%,rgba(255,250,242,0.92),transparent_24%),radial-gradient(circle_at_76%_18%,rgba(231,198,121,0.48),transparent_18%),linear-gradient(145deg,#f8f0e5,#d8c5a9_48%,#5c5045)]" />
+                  <div className="absolute right-6 top-7 text-8xl font-semibold leading-none text-[#b9945b]/45 drop-shadow-[0_0_22px_rgba(185,148,91,0.45)]">
+                    {index + 1}
+                  </div>
+                  <div className="absolute left-8 top-8 h-28 w-28 rounded-full border border-[#fffaf2]/70 shadow-[0_0_35px_rgba(255,250,242,0.35)]" />
+                  <div className="absolute bottom-8 left-10 h-24 w-px rotate-12 bg-[#fffaf2]/70 shadow-[0_0_26px_8px_rgba(255,250,242,0.22)]" />
+                  <div className="absolute bottom-9 right-8 h-16 w-16 rounded-full border border-[#111820]/25" />
+                  <div className="absolute inset-x-6 bottom-6 rounded-[1.4rem] bg-[#111820]/88 p-5 text-[#fffaf2]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
+                      {service.eyebrow}
+                    </p>
+                    <h3 className="mt-2 text-2xl font-semibold">
+                      {service.title}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-5 px-2 pb-3">
+                  <div>
+                    <p className="inline-flex rounded-full bg-[#eee0ca] px-4 py-2 text-sm font-semibold text-[#806847]">
+                      {service.price}
+                    </p>
+                    <p className="mt-4 leading-7 text-[#776b5f]">
+                      {service.description}
+                    </p>
+                  </div>
+                  <span className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#b9945b] text-xl text-[#17130f] transition group-open:rotate-45">
+                    +
+                  </span>
+                </div>
+              </summary>
+              <div className="border-t border-[#dfcfb9] px-7 pb-7 pt-2">
+                <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-[#9b7a45]">
+                  Includes
+                </p>
+                <ul className="grid gap-3 text-sm font-medium text-[#4e463d]">
+                  {service.details.map((detail) => (
+                    <li
+                      key={detail}
+                      className="rounded-full bg-[#f1e6d6] px-4 py-3"
+                    >
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </details>
           ))}
         </div>
       </section>
