@@ -124,7 +124,7 @@ export default function Home() {
       <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-1 sm:px-6 lg:px-8">
         <a
           href="#"
-          className="relative -ml-3 h-24 w-56 sm:h-32 sm:w-72 md:-ml-6 md:h-48 md:w-[30rem]"
+          className="relative -ml-1 h-24 w-56 sm:ml-0 sm:h-32 sm:w-72 md:h-48 md:w-[30rem]"
           aria-label="L'Beau Clinique home"
         >
           <Image
