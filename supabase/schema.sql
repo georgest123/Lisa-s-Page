@@ -66,6 +66,91 @@ alter table public.booking_settings add column if not exists booking_mode text n
 alter table public.booking_settings add column if not exists notification_email text not null default 'lbeauclinique@gmail.com';
 alter table public.booking_settings add column if not exists admin_email text not null default 'lbeauclinique@gmail.com';
 
+with ranked_services as (
+  select
+    id,
+    first_value(id) over (
+      partition by name
+      order by sort_order, created_at, id
+    ) as keep_id,
+    row_number() over (
+      partition by name
+      order by sort_order, created_at, id
+    ) as row_number
+  from public.services
+)
+update public.treatments
+set service_id = ranked_services.keep_id
+from ranked_services
+where public.treatments.service_id = ranked_services.id
+  and ranked_services.row_number > 1;
+
+with ranked_services as (
+  select
+    id,
+    first_value(id) over (
+      partition by name
+      order by sort_order, created_at, id
+    ) as keep_id,
+    row_number() over (
+      partition by name
+      order by sort_order, created_at, id
+    ) as row_number
+  from public.services
+)
+update public.bookings
+set service_id = ranked_services.keep_id
+from ranked_services
+where public.bookings.service_id = ranked_services.id
+  and ranked_services.row_number > 1;
+
+with ranked_services as (
+  select
+    id,
+    row_number() over (
+      partition by name
+      order by sort_order, created_at, id
+    ) as row_number
+  from public.services
+)
+delete from public.services
+using ranked_services
+where public.services.id = ranked_services.id
+  and ranked_services.row_number > 1;
+
+with ranked_treatments as (
+  select
+    id,
+    first_value(id) over (
+      partition by service_id, name
+      order by sort_order, created_at, id
+    ) as keep_id,
+    row_number() over (
+      partition by service_id, name
+      order by sort_order, created_at, id
+    ) as row_number
+  from public.treatments
+)
+update public.bookings
+set treatment_id = ranked_treatments.keep_id
+from ranked_treatments
+where public.bookings.treatment_id = ranked_treatments.id
+  and ranked_treatments.row_number > 1;
+
+with ranked_treatments as (
+  select
+    id,
+    row_number() over (
+      partition by service_id, name
+      order by sort_order, created_at, id
+    ) as row_number
+  from public.treatments
+)
+delete from public.treatments
+using ranked_treatments
+where public.treatments.id = ranked_treatments.id
+  and ranked_treatments.row_number > 1;
+
 create unique index if not exists services_name_key on public.services (name);
 create unique index if not exists treatments_service_name_key on public.treatments (service_id, name);
 
