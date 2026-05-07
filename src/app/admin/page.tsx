@@ -44,6 +44,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [user, setUser] = useState<User | null>(null);
   const [loginEmail, setLoginEmail] = useState(adminEmail);
+  const [loginCode, setLoginCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [services, setServices] = useState<ServiceWithTreatments[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -119,7 +121,7 @@ export default function AdminPage() {
     setLoading(false);
   }
 
-  async function sendLoginLink() {
+  async function sendLoginCode() {
     if (!supabase) return;
     if (loginEmail.trim().toLowerCase() !== adminEmail) {
       setMessage(`Only ${adminEmail} can access the scheduling studio.`);
@@ -128,12 +130,31 @@ export default function AdminPage() {
 
     const { error } = await supabase.auth.signInWithOtp({
       email: loginEmail,
-      options: {
-        emailRedirectTo: `${window.location.origin}/admin`,
-      },
     });
 
-    setMessage(error ? error.message : "Check your email for the secure login link.");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setCodeSent(true);
+    setMessage("Check your email for the 6-digit login code.");
+  }
+
+  async function verifyLoginCode() {
+    if (!supabase) return;
+    if (!loginCode.trim()) {
+      setMessage("Enter the code from your email.");
+      return;
+    }
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: loginEmail,
+      token: loginCode.trim(),
+      type: "email",
+    });
+
+    setMessage(error ? error.message : "Login confirmed.");
   }
 
   async function signOut() {
@@ -334,20 +355,35 @@ export default function AdminPage() {
         <Panel title="Secure admin login">
           <div className="grid gap-4 md:max-w-xl">
             <p className="text-[#776b5f]">
-              Enter {adminEmail} to receive a magic link for the scheduling
-              studio.
+              Enter {adminEmail} to receive a 6-digit access code for the
+              scheduling studio.
             </p>
             <AdminInput
               label="Admin email"
               value={loginEmail}
               onChange={setLoginEmail}
             />
+            {codeSent ? (
+              <AdminInput
+                label="Access code"
+                value={loginCode}
+                onChange={setLoginCode}
+              />
+            ) : null}
             <button
-              onClick={sendLoginLink}
+              onClick={codeSent ? verifyLoginCode : sendLoginCode}
               className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2]"
             >
-              Send login link
+              {codeSent ? "Verify code" : "Send access code"}
             </button>
+            {codeSent ? (
+              <button
+                onClick={sendLoginCode}
+                className="text-left text-sm font-semibold text-[#776b5f]"
+              >
+                Resend code
+              </button>
+            ) : null}
             {message ? <p className="text-sm text-[#776b5f]">{message}</p> : null}
           </div>
         </Panel>

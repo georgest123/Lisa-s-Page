@@ -30,11 +30,11 @@ Admin write access is locked to `lbeauclinique@gmail.com` through Supabase Auth.
 
 ## Admin login
 
-The `/admin` page uses Supabase magic links. In Supabase:
+The `/admin` page uses Supabase email OTP codes. In Supabase:
 
 1. Go to Authentication > Providers.
 2. Make sure Email provider is enabled.
-3. Keep magic link / OTP email login enabled.
+3. Keep OTP email login enabled.
 4. Use `lbeauclinique@gmail.com` on `/admin`.
 
 If signups are disabled, invite `lbeauclinique@gmail.com` under Authentication > Users.
