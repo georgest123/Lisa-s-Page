@@ -5,6 +5,7 @@ create table if not exists public.services (
   name text not null,
   category text not null,
   description text,
+  image_url text,
   duration_minutes integer not null default 45,
   price_label text,
   active boolean not null default true,
@@ -35,6 +36,11 @@ create table if not exists public.booking_settings (
   buffer_minutes integer not null default 10,
   minimum_notice_hours integer not null default 24,
   deposit_rule text not null default 'Optional later',
+  booking_mode text not null default 'instant' check (
+    booking_mode in ('instant', 'request')
+  ),
+  notification_email text not null default 'lbeauclinique@gmail.com',
+  admin_email text not null default 'lbeauclinique@gmail.com',
   updated_at timestamptz not null default now(),
   constraint single_settings_row check (id)
 );
@@ -55,36 +61,115 @@ create table if not exists public.bookings (
   created_at timestamptz not null default now()
 );
 
+alter table public.services add column if not exists image_url text;
+alter table public.booking_settings add column if not exists booking_mode text not null default 'instant';
+alter table public.booking_settings add column if not exists notification_email text not null default 'lbeauclinique@gmail.com';
+alter table public.booking_settings add column if not exists admin_email text not null default 'lbeauclinique@gmail.com';
+
+create unique index if not exists services_name_key on public.services (name);
+create unique index if not exists treatments_service_name_key on public.treatments (service_id, name);
+
 alter table public.services enable row level security;
 alter table public.treatments enable row level security;
 alter table public.availability enable row level security;
 alter table public.booking_settings enable row level security;
 alter table public.bookings enable row level security;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(auth.jwt() ->> 'email', '') = 'lbeauclinique@gmail.com';
+$$;
+
 drop policy if exists "Anyone can read active services" on public.services;
 create policy "Anyone can read active services"
   on public.services for select
   using (active = true);
+
+drop policy if exists "Admin can manage services" on public.services;
+create policy "Admin can manage services"
+  on public.services for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "Anyone can read active treatments" on public.treatments;
 create policy "Anyone can read active treatments"
   on public.treatments for select
   using (active = true);
 
+drop policy if exists "Admin can manage treatments" on public.treatments;
+create policy "Admin can manage treatments"
+  on public.treatments for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 drop policy if exists "Anyone can read availability" on public.availability;
 create policy "Anyone can read availability"
   on public.availability for select
   using (true);
+
+drop policy if exists "Admin can manage availability" on public.availability;
+create policy "Admin can manage availability"
+  on public.availability for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "Anyone can read booking settings" on public.booking_settings;
 create policy "Anyone can read booking settings"
   on public.booking_settings for select
   using (true);
 
+drop policy if exists "Admin can manage booking settings" on public.booking_settings;
+create policy "Admin can manage booking settings"
+  on public.booking_settings for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 drop policy if exists "Anyone can create booking requests" on public.bookings;
 create policy "Anyone can create booking requests"
   on public.bookings for insert
-  with check (status = 'pending');
+  with check (status in ('pending', 'confirmed'));
+
+drop policy if exists "Admin can manage bookings" on public.bookings;
+create policy "Admin can manage bookings"
+  on public.bookings for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into storage.buckets (id, name, public)
+values ('service-images', 'service-images', true)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "Anyone can read service images" on storage.objects;
+create policy "Anyone can read service images"
+  on storage.objects for select
+  using (bucket_id = 'service-images');
+
+drop policy if exists "Admin can upload service images" on storage.objects;
+create policy "Admin can upload service images"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'service-images' and public.is_admin());
+
+drop policy if exists "Admin can update service images" on storage.objects;
+create policy "Admin can update service images"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'service-images' and public.is_admin())
+  with check (bucket_id = 'service-images' and public.is_admin());
+
+drop policy if exists "Admin can delete service images" on storage.objects;
+create policy "Admin can delete service images"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'service-images' and public.is_admin());
 
 insert into public.services
   (name, category, description, duration_minutes, price_label, sort_order)
@@ -113,7 +198,12 @@ values
     'Bespoke',
     3
   )
-on conflict do nothing;
+on conflict (name) do update set
+  category = excluded.category,
+  description = excluded.description,
+  duration_minutes = excluded.duration_minutes,
+  price_label = excluded.price_label,
+  sort_order = excluded.sort_order;
 
 insert into public.treatments (service_id, name, sort_order)
 select services.id, treatment.name, treatment.sort_order
@@ -138,7 +228,7 @@ join (
     ('Face 21', 'Tone', 5)
 ) as treatment(service_name, name, sort_order)
   on treatment.service_name = services.name
-on conflict do nothing;
+on conflict (service_id, name) do nothing;
 
 insert into public.availability (day_of_week, opens_at, closes_at, enabled)
 values
@@ -153,4 +243,7 @@ on conflict (day_of_week) do nothing;
 
 insert into public.booking_settings (id)
 values (true)
-on conflict (id) do nothing;
+on conflict (id) do update set
+  booking_mode = 'instant',
+  notification_email = 'lbeauclinique@gmail.com',
+  admin_email = 'lbeauclinique@gmail.com';

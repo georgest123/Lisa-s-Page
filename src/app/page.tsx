@@ -142,12 +142,12 @@ export default function Home() {
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </div>
-        <a
-          href="tel:+4407717096809"
+        <Link
+          href="/book"
           className="shrink-0 whitespace-nowrap rounded-full bg-[#111820] px-3 py-2 text-xs font-semibold text-[#fffaf2] shadow-lg shadow-[#b9945b]/20 transition hover:bg-[#3a3029] sm:px-4 sm:py-2.5 md:px-5 md:py-3 md:text-sm"
         >
           Book now
-        </a>
+        </Link>
       </nav>
 
       <section className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 pb-24 pt-0 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pt-4">
@@ -165,12 +165,12 @@ export default function Home() {
             clinic led by Lisa and her expert team.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <a
-              href="mailto:lbeauclinique@gmail.com?subject=Book%20a%20consultation"
+            <Link
+              href="/book"
               className="rounded-full bg-[#b9945b] px-8 py-4 text-center font-semibold text-[#17130f] shadow-xl shadow-[#b9945b]/30 transition hover:-translate-y-0.5 hover:bg-[#d0ae72]"
             >
               Book consultation
-            </a>
+            </Link>
             <a
               href="#treatments"
               className="rounded-full border border-[#d9c8ac] bg-[#fffaf2]/70 px-8 py-4 text-center font-semibold text-[#6f5638] transition hover:-translate-y-0.5 hover:bg-[#fffaf2]"
@@ -424,12 +424,12 @@ export default function Home() {
               Ready for your sculpt, strength and glow plan?
             </h2>
             <div className="relative mt-8 flex flex-col gap-4 sm:flex-row">
-              <a
-                href="tel:+4407717096809"
+              <Link
+                href="/book"
                 className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2] shadow-lg shadow-[#111820]/10"
               >
-                Call 07717 096809
-              </a>
+                Book online
+              </Link>
               <a
                 href="mailto:lbeauclinique@gmail.com"
                 className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"

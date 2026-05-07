@@ -26,4 +26,25 @@ This creates:
 - `bookings`
 
 The public site can read active services and create pending booking requests.
-Admin write access will be locked down with Supabase Auth in the next step.
+Admin write access is locked to `lbeauclinique@gmail.com` through Supabase Auth.
+
+## Admin login
+
+The `/admin` page uses Supabase magic links. In Supabase:
+
+1. Go to Authentication > Providers.
+2. Make sure Email provider is enabled.
+3. Keep magic link / OTP email login enabled.
+4. Use `lbeauclinique@gmail.com` on `/admin`.
+
+If signups are disabled, invite `lbeauclinique@gmail.com` under Authentication > Users.
+
+## Service images
+
+The schema creates a public Storage bucket called `service-images`.
+Admins can upload service pictures from `/admin`; the public site can read them.
+
+## Instant booking
+
+The public `/book` page creates confirmed bookings when booking mode is `instant`.
+Email notifications are not sent yet; add an email provider such as Resend for that.

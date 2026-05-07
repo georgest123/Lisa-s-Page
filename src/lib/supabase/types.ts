@@ -5,6 +5,7 @@ export type Service = {
   name: string;
   category: string;
   description: string | null;
+  image_url: string | null;
   duration_minutes: number;
   price_label: string | null;
   active: boolean;
@@ -41,4 +42,16 @@ export type Booking = {
   notes: string | null;
   status: BookingStatus;
   created_at: string;
+};
+
+export type BookingSettings = {
+  id: boolean;
+  slot_interval_minutes: number;
+  buffer_minutes: number;
+  minimum_notice_hours: number;
+  deposit_rule: string;
+  booking_mode: "instant" | "request";
+  notification_email: string;
+  admin_email: string;
+  updated_at: string;
 };
