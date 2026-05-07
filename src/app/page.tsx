@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import skinRenewalImage from "../../skin-renewal.jpg";
 
 const services = [
@@ -461,6 +462,14 @@ export default function Home() {
               </div>
             </dl>
           </div>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Link
+            href="/admin"
+            className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638]"
+          >
+            Scheduling studio
+          </Link>
         </div>
       </section>
     </main>
