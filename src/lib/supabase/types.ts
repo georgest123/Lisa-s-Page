@@ -45,6 +45,8 @@ export type Booking = {
   requested_time: string;
   notes: string | null;
   status: BookingStatus;
+  /** Set when Google Calendar API creates an event for this booking */
+  google_calendar_event_id?: string | null;
   created_at: string;
 };
 

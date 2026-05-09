@@ -63,6 +63,17 @@ After a booking is created from `/book` or `/admin`, or when status changes in a
 
 See `.env.example` in the repo.
 
+## Clinic Google Calendar (API sync)
+
+Optional: each booking can **create or update an event** on your Google Calendar via a **Google Cloud service account**. Public bookings and admin changes call the Calendar API (same time window as the ICS download).
+
+1. In [Google Cloud Console](https://console.cloud.google.com): create a project, enable **Google Calendar API**, create a **service account**, add a JSON key.
+2. Copy the service account **client email** and **private key** into Vercel env (see `.env.example`). Set **`GOOGLE_CALENDAR_CALENDAR_ID`** to the calendar id — usually your Gmail address (e.g. `lbeauclinique@gmail.com`).
+3. In Google Calendar **settings → Share with specific people**, share **your** clinic calendar with the **service account email** and grant **Make changes to events**.
+4. In Supabase SQL Editor, run **`supabase/add_google_calendar_event_id.sql`** (or ensure `schema.sql` has been applied) so `bookings.google_calendar_event_id` exists.
+
+If these variables are unset, the app skips Calendar API calls and behaviour is unchanged.
+
 ## Treatment duration and price (optional columns)
 
 If your database was created before these fields existed, run this once in the SQL Editor:

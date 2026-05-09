@@ -69,6 +69,8 @@ alter table public.booking_settings add column if not exists booking_mode text n
 alter table public.booking_settings add column if not exists notification_email text not null default 'lbeauclinique@gmail.com';
 alter table public.booking_settings add column if not exists admin_email text not null default 'lbeauclinique@gmail.com';
 
+alter table public.bookings add column if not exists google_calendar_event_id text;
+
 with ranked_services as (
   select
     id,
