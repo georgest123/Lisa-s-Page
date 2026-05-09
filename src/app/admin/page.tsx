@@ -1436,39 +1436,6 @@ function bookingStatusClasses(status: BookingStatus): string {
   }
 }
 
-/** Keeps the tooltip adjacent to the pointer; flips left/above only when needed. */
-function positionTooltipByCursor(
-  clientX: number,
-  clientY: number,
-  tooltipWidth: number,
-  tooltipHeight: number,
-): { left: number; top: number } {
-  const gap = 10;
-  const edge = 8;
-  if (typeof window === "undefined") {
-    return { left: clientX + gap, top: clientY + gap };
-  }
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const tw = Math.min(tooltipWidth, vw - 2 * edge);
-  const th = tooltipHeight;
-
-  let left = clientX + gap;
-  let top = clientY + gap;
-
-  if (left + tw > vw - edge) {
-    left = clientX - tw - gap;
-  }
-  if (top + th > vh - edge) {
-    top = clientY - th - gap;
-  }
-
-  left = Math.max(edge, Math.min(left, vw - tw - edge));
-  top = Math.max(edge, Math.min(top, vh - th - edge));
-
-  return { left, top };
-}
-
 function bookingBlockDurationMinutes(
   booking: Booking,
   services: ServiceWithTreatments[],
@@ -1483,14 +1450,12 @@ function bookingBlockDurationMinutes(
   );
 }
 
-function BookingHoverTooltip({
+function BookingHoverCard({
   booking,
   services,
-  position,
 }: {
   booking: Booking;
   services: ServiceWithTreatments[];
-  position: { x: number; y: number };
 }) {
   const duration = bookingBlockDurationMinutes(booking, services);
   const label = serviceLabel(booking, services);
@@ -1506,20 +1471,8 @@ function BookingHoverTooltip({
       })
     : "—";
 
-  const width = 288;
-  const estHeight = 300;
-  const { left, top } = positionTooltipByCursor(
-    position.x,
-    position.y,
-    width,
-    estHeight,
-  );
-
   return (
-    <div
-      className="pointer-events-none fixed z-[250] w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-4 text-sm shadow-2xl ring-1 ring-[#8b765d]/15"
-      style={{ left, top }}
-    >
+    <div className="rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-3 text-xs shadow-2xl ring-1 ring-[#8b765d]/15 sm:text-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
         Booking details
       </p>
@@ -1577,12 +1530,6 @@ function WeeklyCalendarGrid({
   slotIntervalMinutes: number;
   onDaySlotClick?: (date: string, timeMinutes: number) => void;
 }) {
-  const [hoverTip, setHoverTip] = useState<{
-    booking: Booking;
-    x: number;
-    y: number;
-  } | null>(null);
-
   const layout = useMemo(() => {
     const bounds = weekGridBounds(weekDates, availability);
     const displayStart = Math.floor(bounds.start / 60) * 60;
@@ -1631,7 +1578,7 @@ function WeeklyCalendarGrid({
 
   return (
     <>
-    <div className="overflow-x-auto rounded-2xl border border-[#dfcfb9] bg-[#fffaf2]/40">
+    <div className="overflow-x-auto overflow-y-visible rounded-2xl border border-[#dfcfb9] bg-[#fffaf2]/40">
       <div className="min-w-[720px]">
         <div className="flex border-b border-[#dfcfb9] bg-[#fffaf2]">
           <div className="sticky left-0 z-30 w-12 shrink-0 border-r border-[#dfcfb9] bg-[#f6f0e7] sm:w-14" />
@@ -1671,10 +1618,11 @@ function WeeklyCalendarGrid({
           </div>
 
           <div className="grid min-w-0 flex-1 grid-cols-7 gap-px bg-[#dfcfb9]/60">
-            {weekDates.map((dayDate) => {
+            {weekDates.map((dayDate, dayColumnIndex) => {
               const key = toISODateLocal(dayDate);
               const isToday = key === todayKey;
               const dayBookings = bookingsByDay.get(key) ?? [];
+              const pinTooltipLeft = dayColumnIndex >= 5;
               return (
                 <div
                   key={key}
@@ -1698,7 +1646,7 @@ function WeeklyCalendarGrid({
                     );
                     onDaySlotClick(key, minutes);
                   }}
-                  className={`relative min-w-0 bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""} ${onDaySlotClick ? "cursor-pointer" : ""}`}
+                  className={`relative min-w-0 overflow-visible bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""} ${onDaySlotClick ? "cursor-pointer" : ""}`}
                   style={{
                     minHeight: layout.totalHeight,
                     height: layout.totalHeight,
@@ -1733,40 +1681,31 @@ function WeeklyCalendarGrid({
                       <div
                         key={booking.id}
                         data-booking-block
-                        className={`absolute left-0.5 right-0.5 z-[6] overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:left-1 sm:right-1 sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                        className="group absolute left-0.5 right-0.5 z-[6] hover:z-[35] sm:left-1 sm:right-1"
                         style={{ top, height }}
                         onClick={(event) => event.stopPropagation()}
-                        onMouseEnter={(event) =>
-                          setHoverTip({
-                            booking,
-                            x: event.clientX,
-                            y: event.clientY,
-                          })
-                        }
-                        onMouseMove={(event) =>
-                          setHoverTip((current) =>
-                            current?.booking.id === booking.id
-                              ? {
-                                  booking,
-                                  x: event.clientX,
-                                  y: event.clientY,
-                                }
-                              : current,
-                          )
-                        }
-                        onMouseLeave={() =>
-                          setHoverTip((current) =>
-                            current?.booking.id === booking.id ? null : current,
-                          )
-                        }
                       >
-                        <p className="truncate font-semibold leading-tight">
-                          {formatHourLabel(startM)}
-                        </p>
-                        <p className="truncate leading-tight">{booking.client_name}</p>
-                        <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
-                          {label}
-                        </p>
+                        <div
+                          className={`relative z-[1] flex h-full flex-col overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                        >
+                          <p className="truncate font-semibold leading-tight">
+                            {formatHourLabel(startM)}
+                          </p>
+                          <p className="truncate leading-tight">
+                            {booking.client_name}
+                          </p>
+                          <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
+                            {label}
+                          </p>
+                        </div>
+                        <div
+                          className={`pointer-events-none invisible absolute top-0 z-[100] w-[min(18rem,calc(100vw-3rem))] opacity-0 shadow-2xl transition-opacity duration-150 group-hover:visible group-hover:opacity-100 ${pinTooltipLeft ? "right-full mr-1" : "left-full ml-1"}`}
+                        >
+                          <BookingHoverCard
+                            booking={booking}
+                            services={services}
+                          />
+                        </div>
                       </div>
                     );
                   })}
@@ -1777,13 +1716,6 @@ function WeeklyCalendarGrid({
         </div>
       </div>
     </div>
-    {hoverTip ? (
-      <BookingHoverTooltip
-        booking={hoverTip.booking}
-        services={services}
-        position={{ x: hoverTip.x, y: hoverTip.y }}
-      />
-    ) : null}
     </>
   );
 }
