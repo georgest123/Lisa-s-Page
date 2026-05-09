@@ -52,6 +52,19 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<BookingSettings>(defaultSettings);
   const [message, setMessage] = useState("");
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
+  const [addBookingOpen, setAddBookingOpen] = useState(false);
+  const [addBookingSaving, setAddBookingSaving] = useState(false);
+  const [addBookingForm, setAddBookingForm] = useState({
+    date: "",
+    time: "09:30",
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    serviceId: "",
+    treatmentId: "",
+    notes: "",
+    status: "confirmed" as BookingStatus,
+  });
   const supabaseReady = hasSupabaseConfig();
   const [loading, setLoading] = useState(supabaseReady);
   const supabase = useMemo(
@@ -85,6 +98,15 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  useEffect(() => {
+    if (!addBookingOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setAddBookingOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [addBookingOpen]);
+
   const activeServices = services.filter((service) => service.active).length;
   const pendingBookings = bookings.filter(
     (booking) => booking.status === "pending",
@@ -108,6 +130,14 @@ export default function AdminPage() {
         booking.requested_date >= start && booking.requested_date <= end,
     );
   }, [bookings, weekDates]);
+
+  const defaultDateForModal = useMemo(() => {
+    const today = toISODateLocal(new Date());
+    const start = toISODateLocal(weekDates[0]);
+    const end = toISODateLocal(weekDates[6]);
+    if (today >= start && today <= end) return today;
+    return start;
+  }, [weekDates]);
 
   async function loadAdminData() {
     if (!supabase) return;
@@ -374,6 +404,71 @@ export default function AdminPage() {
     await loadAdminData();
   }
 
+  function openAddBookingModal(preset?: { date: string; timeMinutes: number }) {
+    const firstActive = services.find((service) => service.active);
+    const step = settings.slot_interval_minutes || 15;
+    const dateStr = preset?.date ?? defaultDateForModal;
+    let minutes =
+      preset?.timeMinutes ?? parseTimeToMinutes("09:30");
+    minutes = Math.round(minutes / step) * step;
+    minutes = Math.max(0, Math.min(minutes, 24 * 60 - step));
+    setAddBookingForm({
+      date: dateStr,
+      time: formatHourLabel(minutes),
+      clientName: "",
+      clientEmail: "",
+      clientPhone: "",
+      serviceId: firstActive?.id ?? "",
+      treatmentId:
+        firstActive?.treatments.find((treatment) => treatment.active)?.id ??
+        firstActive?.treatments[0]?.id ??
+        "",
+      notes: "",
+      status: "confirmed",
+    });
+    setAddBookingOpen(true);
+  }
+
+  async function createCalendarBooking() {
+    if (!supabase) return;
+    if (
+      !addBookingForm.clientName.trim() ||
+      !addBookingForm.clientEmail.trim() ||
+      !addBookingForm.serviceId
+    ) {
+      setMessage("Add client name, email, and service.");
+      return;
+    }
+    if (!addBookingForm.time.trim()) {
+      setMessage("Choose a time.");
+      return;
+    }
+    const rawTime = addBookingForm.time.trim();
+    const timeNorm =
+      rawTime.length === 5 ? `${rawTime}:00` : rawTime.length >= 8 ? rawTime : `${rawTime}:00`;
+    setAddBookingSaving(true);
+    setMessage("");
+    const { error } = await supabase.from("bookings").insert({
+      client_name: addBookingForm.clientName.trim(),
+      client_email: addBookingForm.clientEmail.trim(),
+      client_phone: addBookingForm.clientPhone.trim() || null,
+      service_id: addBookingForm.serviceId,
+      treatment_id: addBookingForm.treatmentId || null,
+      requested_date: addBookingForm.date,
+      requested_time: timeNorm,
+      notes: addBookingForm.notes.trim() || null,
+      status: addBookingForm.status,
+    });
+    setAddBookingSaving(false);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setMessage("Booking added.");
+    setAddBookingOpen(false);
+    await loadAdminData();
+  }
+
   if (!supabaseReady) {
     return (
       <AdminShell>
@@ -478,6 +573,13 @@ export default function AdminPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => openAddBookingModal()}
+                  className="rounded-full bg-[#111820] px-3 py-2 text-xs font-semibold text-[#fffaf2] sm:px-4 sm:text-sm"
+                >
+                  Add booking
+                </button>
+                <button
+                  type="button"
                   onClick={() => setCalendarWeekOffset((previous) => previous - 1)}
                   className="rounded-full border border-[#dfcfb9] px-3 py-2 text-xs font-semibold text-[#6f5638] sm:px-4 sm:text-sm"
                 >
@@ -505,7 +607,8 @@ export default function AdminPage() {
             </p>
             <p className="mb-4 text-sm text-[#776b5f]">
               Blocks use each service duration. Status colours: confirmed, pending,
-              completed, cancelled.
+              completed, cancelled. Click an empty area in a day column to add a
+              booking at that time.
             </p>
             {bookingsThisWeek.length === 0 ? (
               <p className="mb-4 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm font-medium text-[#6f5638]">
@@ -517,6 +620,10 @@ export default function AdminPage() {
               availability={availability}
               bookings={bookingsThisWeek}
               services={services}
+              slotIntervalMinutes={settings.slot_interval_minutes}
+              onDaySlotClick={(date, timeMinutes) =>
+                openAddBookingModal({ date, timeMinutes })
+              }
             />
           </Panel>
 
@@ -819,6 +926,181 @@ export default function AdminPage() {
           </div>
         </Panel>
       ) : null}
+
+      {addBookingOpen ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-[#17130f]/55 p-4 backdrop-blur-[2px]"
+          onClick={() => setAddBookingOpen(false)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-booking-title"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[1.6rem] border border-[#dfcfb9] bg-[#fffaf2] p-5 shadow-2xl md:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              id="add-booking-title"
+              className="text-xl font-semibold tracking-[-0.03em]"
+            >
+              Add booking
+            </h3>
+            <p className="mt-2 text-sm text-[#776b5f]">
+              Creates an appointment in Supabase and refreshes the calendar.
+            </p>
+            <div className="mt-5 grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <AdminInput
+                  label="Date"
+                  type="date"
+                  value={addBookingForm.date}
+                  onChange={(value) =>
+                    setAddBookingForm((current) => ({ ...current, date: value }))
+                  }
+                />
+                <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                  Time
+                  <input
+                    type="time"
+                    step={Math.max(settings.slot_interval_minutes, 5) * 60}
+                    value={addBookingForm.time}
+                    onChange={(event) =>
+                      setAddBookingForm((current) => ({
+                        ...current,
+                        time: event.target.value,
+                      }))
+                    }
+                    className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                  />
+                </label>
+              </div>
+              <AdminInput
+                label="Client name"
+                value={addBookingForm.clientName}
+                onChange={(value) =>
+                  setAddBookingForm((current) => ({ ...current, clientName: value }))
+                }
+              />
+              <AdminInput
+                label="Client email"
+                type="email"
+                value={addBookingForm.clientEmail}
+                onChange={(value) =>
+                  setAddBookingForm((current) => ({
+                    ...current,
+                    clientEmail: value,
+                  }))
+                }
+              />
+              <AdminInput
+                label="Phone (optional)"
+                value={addBookingForm.clientPhone}
+                onChange={(value) =>
+                  setAddBookingForm((current) => ({
+                    ...current,
+                    clientPhone: value,
+                  }))
+                }
+              />
+              <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Service
+                <select
+                  value={addBookingForm.serviceId}
+                  onChange={(event) => {
+                    const serviceId = event.target.value;
+                    const svc = services.find((item) => item.id === serviceId);
+                    const nextTreatment =
+                      svc?.treatments.find((treatment) => treatment.active)?.id ??
+                      svc?.treatments[0]?.id ??
+                      "";
+                    setAddBookingForm((current) => ({
+                      ...current,
+                      serviceId,
+                      treatmentId: nextTreatment,
+                    }));
+                  }}
+                  className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                >
+                  <option value="">Select service</option>
+                  {services
+                    .filter((service) => service.active)
+                    .map((service) => (
+                      <option key={service.id} value={service.id}>
+                        {service.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Treatment (optional)
+                <select
+                  value={addBookingForm.treatmentId}
+                  onChange={(event) =>
+                    setAddBookingForm((current) => ({
+                      ...current,
+                      treatmentId: event.target.value,
+                    }))
+                  }
+                  className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                >
+                  <option value="">—</option>
+                  {services
+                    .find((item) => item.id === addBookingForm.serviceId)
+                    ?.treatments.filter((treatment) => treatment.active)
+                    .map((treatment) => (
+                      <option key={treatment.id} value={treatment.id}>
+                        {treatment.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Status
+                <select
+                  value={addBookingForm.status}
+                  onChange={(event) =>
+                    setAddBookingForm((current) => ({
+                      ...current,
+                      status: event.target.value as BookingStatus,
+                    }))
+                  }
+                  className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                >
+                  <option value="confirmed">Confirmed</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+              <AdminTextarea
+                label="Notes (optional)"
+                value={addBookingForm.notes}
+                onChange={(value) =>
+                  setAddBookingForm((current) => ({ ...current, notes: value }))
+                }
+              />
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setAddBookingOpen(false)}
+                className="rounded-full border border-[#dfcfb9] px-5 py-3 text-sm font-semibold text-[#6f5638]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={addBookingSaving}
+                onClick={() => void createCalendarBooking()}
+                className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2] disabled:opacity-50"
+              >
+                {addBookingSaving ? "Saving…" : "Save booking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AdminShell>
   );
 }
@@ -899,17 +1181,114 @@ function bookingStatusClasses(status: BookingStatus): string {
   }
 }
 
+function BookingHoverTooltip({
+  booking,
+  services,
+  position,
+}: {
+  booking: Booking;
+  services: ServiceWithTreatments[];
+  position: { x: number; y: number };
+}) {
+  const service = services.find((item) => item.id === booking.service_id);
+  const duration = service?.duration_minutes ?? 45;
+  const label = serviceLabel(booking, services);
+  const startM = parseTimeToMinutes(booking.requested_time);
+  const endM = startM + duration;
+  const created = booking.created_at
+    ? new Date(booking.created_at).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+  const pad = 12;
+  const width = 288;
+  const estHeight = 300;
+  const vw =
+    typeof window !== "undefined" ? window.innerWidth : 800;
+  const vh =
+    typeof window !== "undefined" ? window.innerHeight : 600;
+  const left = Math.max(
+    pad,
+    Math.min(position.x + pad, vw - width - pad),
+  );
+  const top = Math.max(
+    pad,
+    Math.min(position.y + pad, vh - estHeight - pad),
+  );
+
+  return (
+    <div
+      className="pointer-events-none fixed z-[250] w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-4 text-sm shadow-2xl ring-1 ring-[#8b765d]/15"
+      style={{ left, top }}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
+        Booking details
+      </p>
+      <p className="mt-2 text-lg font-semibold leading-snug text-[#2a211b]">
+        {booking.client_name}
+      </p>
+      <div className="mt-3 grid gap-2 text-[#2a211b]">
+        <p>
+          <span className="text-[#9b7a45]">Email </span>
+          {booking.client_email}
+        </p>
+        {booking.client_phone ? (
+          <p>
+            <span className="text-[#9b7a45]">Phone </span>
+            {booking.client_phone}
+          </p>
+        ) : null}
+        <p>
+          <span className="text-[#9b7a45]">Treatment </span>
+          {label}
+        </p>
+        <p>
+          <span className="text-[#9b7a45]">When </span>
+          {booking.requested_date}{" "}
+          {formatHourLabel(startM)}–{formatHourLabel(endM)} ({duration} min)
+        </p>
+        <p>
+          <span className="text-[#9b7a45]">Status </span>
+          <span className="capitalize">{booking.status}</span>
+        </p>
+        {booking.notes ? (
+          <p className="whitespace-pre-wrap">
+            <span className="text-[#9b7a45]">Notes </span>
+            {booking.notes}
+          </p>
+        ) : null}
+        <p className="text-xs text-[#776b5f]">Created {created}</p>
+      </div>
+    </div>
+  );
+}
+
 function WeeklyCalendarGrid({
   weekDates,
   availability,
   bookings,
   services,
+  slotIntervalMinutes,
+  onDaySlotClick,
 }: {
   weekDates: Date[];
   availability: Availability[];
   bookings: Booking[];
   services: ServiceWithTreatments[];
+  slotIntervalMinutes: number;
+  onDaySlotClick?: (date: string, timeMinutes: number) => void;
 }) {
+  const [hoverTip, setHoverTip] = useState<{
+    booking: Booking;
+    x: number;
+    y: number;
+  } | null>(null);
+
   const layout = useMemo(() => {
     const bounds = weekGridBounds(weekDates, availability);
     const displayStart = Math.floor(bounds.start / 60) * 60;
@@ -957,6 +1336,7 @@ function WeeklyCalendarGrid({
   const todayKey = toISODateLocal(new Date());
 
   return (
+    <>
     <div className="overflow-x-auto rounded-2xl border border-[#dfcfb9] bg-[#fffaf2]/40">
       <div className="min-w-[720px]">
         <div className="flex border-b border-[#dfcfb9] bg-[#fffaf2]">
@@ -1004,7 +1384,27 @@ function WeeklyCalendarGrid({
               return (
                 <div
                   key={key}
-                  className={`relative min-w-0 bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""}`}
+                  onClick={(event) => {
+                    if (!onDaySlotClick) return;
+                    if (
+                      (event.target as HTMLElement).closest("[data-booking-block]")
+                    ) {
+                      return;
+                    }
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const y = event.clientY - rect.top;
+                    let minutes =
+                      layout.displayStart + y / layout.pxPerMinute;
+                    const step = Math.max(slotIntervalMinutes, 5);
+                    minutes = Math.round(minutes / step) * step;
+                    const maxStart = layout.displayEnd - step;
+                    minutes = Math.max(
+                      layout.displayStart,
+                      Math.min(minutes, maxStart),
+                    );
+                    onDaySlotClick(key, minutes);
+                  }}
+                  className={`relative min-w-0 bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""} ${onDaySlotClick ? "cursor-pointer" : ""}`}
                   style={{
                     minHeight: layout.totalHeight,
                     height: layout.totalHeight,
@@ -1038,9 +1438,33 @@ function WeeklyCalendarGrid({
                     return (
                       <div
                         key={booking.id}
-                        className={`absolute left-0.5 right-0.5 overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:left-1 sm:right-1 sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
-                        style={{ top, height, zIndex: 5 }}
-                        title={`${label} — ${booking.client_name}`}
+                        data-booking-block
+                        className={`absolute left-0.5 right-0.5 z-[6] overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:left-1 sm:right-1 sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                        style={{ top, height }}
+                        onClick={(event) => event.stopPropagation()}
+                        onMouseEnter={(event) =>
+                          setHoverTip({
+                            booking,
+                            x: event.clientX,
+                            y: event.clientY,
+                          })
+                        }
+                        onMouseMove={(event) =>
+                          setHoverTip((current) =>
+                            current?.booking.id === booking.id
+                              ? {
+                                  booking,
+                                  x: event.clientX,
+                                  y: event.clientY,
+                                }
+                              : current,
+                          )
+                        }
+                        onMouseLeave={() =>
+                          setHoverTip((current) =>
+                            current?.booking.id === booking.id ? null : current,
+                          )
+                        }
                       >
                         <p className="truncate font-semibold leading-tight">
                           {formatHourLabel(startM)}
@@ -1059,6 +1483,14 @@ function WeeklyCalendarGrid({
         </div>
       </div>
     </div>
+    {hoverTip ? (
+      <BookingHoverTooltip
+        booking={hoverTip.booking}
+        services={services}
+        position={{ x: hoverTip.x, y: hoverTip.y }}
+      />
+    ) : null}
+    </>
   );
 }
 
