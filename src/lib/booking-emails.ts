@@ -1,4 +1,9 @@
 import { Resend } from "resend";
+import {
+  buildCalendarArtifactsFromBooking,
+  loadBookingDetailsForCalendar,
+} from "@/lib/booking-calendar";
+import { getPublicSiteUrl } from "@/lib/site-url";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export type BookingNotifyKind = "created" | "updated";
@@ -29,34 +34,19 @@ export async function sendBookingNotifications(
     return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY not configured" };
   }
 
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .select("*")
-    .eq("id", bookingId)
-    .single();
-
-  if (bookingError || !booking) {
-    return { ok: false, error: bookingError?.message ?? "Booking not found" };
+  const details = await loadBookingDetailsForCalendar(supabase, bookingId);
+  if (!details) {
+    return { ok: false, error: "Booking not found" };
   }
 
-  let serviceName = "Treatment";
-  let treatmentName: string | null = null;
-  if (booking.service_id) {
-    const { data: svc } = await supabase
-      .from("services")
-      .select("name")
-      .eq("id", booking.service_id)
-      .maybeSingle();
-    if (svc?.name) serviceName = svc.name;
-  }
-  if (booking.treatment_id) {
-    const { data: tr } = await supabase
-      .from("treatments")
-      .select("name")
-      .eq("id", booking.treatment_id)
-      .maybeSingle();
-    if (tr?.name) treatmentName = tr.name;
-  }
+  const { booking, serviceName, treatmentName } = details;
+  const calendar = buildCalendarArtifactsFromBooking(
+    details.booking,
+    details.serviceName,
+    details.treatmentName,
+    details.serviceDurationMinutes,
+    details.treatmentDurationMinutes,
+  );
 
   const { data: settings } = await supabase
     .from("booking_settings")
@@ -71,6 +61,10 @@ export async function sendBookingNotifications(
 
   const from =
     process.env.BOOKING_EMAIL_FROM ?? "L'Beau Clinique <onboarding@resend.dev>";
+
+  const siteUrl = getPublicSiteUrl();
+  const icsPageUrl = `${siteUrl}/api/bookings/${booking.id}/calendar`;
+  const googleCalendarProxyUrl = `${siteUrl}/api/bookings/${booking.id}/calendar?fmt=google`;
 
   const treatmentLine = treatmentName
     ? `${escapeHtml(serviceName)} — ${escapeHtml(treatmentName)}`
@@ -95,6 +89,19 @@ export async function sendBookingNotifications(
       ? `New booking: ${booking.client_name}`
       : `Booking updated: ${booking.client_name}`;
 
+  const calendarHtml =
+    calendar != null
+      ? `
+      <p style="margin-top:18px;margin-bottom:8px;font-size:14px;color:#5c4f42"><strong>Add to your calendar</strong></p>
+      <p style="margin:0;font-size:14px;line-height:1.8">
+        <a href="${escapeHtml(icsPageUrl)}" style="color:#8b6914">Download .ics (Apple / Outlook)</a>
+        &nbsp;·&nbsp;
+        <a href="${escapeHtml(googleCalendarProxyUrl)}" style="color:#8b6914">Open in Google Calendar</a>
+      </p>
+      <p style="margin-top:10px;font-size:12px;color:#776b5f">A calendar file is also attached when supported.</p>
+    `
+      : "";
+
   const clientHtml = `
     <div style="font-family:system-ui,Segoe UI,sans-serif;line-height:1.6;color:#2a211b;max-width:520px">
       <p>Hello ${escapeHtml(booking.client_name)},</p>
@@ -105,6 +112,7 @@ export async function sendBookingNotifications(
         <tr><td style="padding:4px 12px 4px 0;color:#776b5f">${kind === "created" ? "Status" : "Update"}</td><td>${escapeHtml(statusNote)}</td></tr>
       </table>
       ${booking.notes ? `<p style="margin-top:12px"><strong>Your note:</strong> ${escapeHtml(booking.notes)}</p>` : ""}
+      ${calendarHtml}
       <p style="margin-top:20px;font-size:14px;color:#776b5f">L'Beau Clinique · Milton Keynes</p>
     </div>
   `;
@@ -121,11 +129,23 @@ export async function sendBookingNotifications(
         <tr><td style="padding:4px 12px 4px 0;color:#776b5f">Status</td><td>${escapeHtml(booking.status)}</td></tr>
       </table>
       ${booking.notes ? `<p><strong>Notes:</strong> ${escapeHtml(booking.notes)}</p>` : ""}
+      ${calendar != null ? `<p style="margin-top:12px;font-size:14px"><a href="${escapeHtml(icsPageUrl)}">Download .ics</a> · <a href="${escapeHtml(googleCalendarProxyUrl)}">Google Calendar</a></p>` : ""}
       <p style="font-size:12px;color:#776b5f">Booking id: ${booking.id}</p>
     </div>
   `;
 
   const resend = new Resend(apiKey);
+
+  const clientAttachments =
+    calendar != null
+      ? [
+          {
+            filename: `lbeau-booking-${booking.id.slice(0, 8)}.ics`,
+            content: Buffer.from(calendar.ics, "utf8"),
+            contentType: "text/calendar; charset=utf-8",
+          },
+        ]
+      : undefined;
 
   const [toClient, toAdmin] = await Promise.all([
     resend.emails.send({
@@ -133,6 +153,7 @@ export async function sendBookingNotifications(
       to: booking.client_email,
       subject: clientSubject,
       html: clientHtml,
+      ...(clientAttachments ? { attachments: clientAttachments } : {}),
     }),
     resend.emails.send({
       from,
