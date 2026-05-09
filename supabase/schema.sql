@@ -22,6 +22,9 @@ create table if not exists public.treatments (
   created_at timestamptz not null default now()
 );
 
+alter table public.treatments add column if not exists duration_minutes integer;
+alter table public.treatments add column if not exists price_label text;
+
 create table if not exists public.availability (
   id uuid primary key default gen_random_uuid(),
   day_of_week integer not null unique check (day_of_week between 0 and 6),

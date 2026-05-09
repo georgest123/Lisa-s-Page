@@ -156,13 +156,19 @@ export default function AdminPage() {
     if (servicesResult.error) setMessage(servicesResult.error.message);
 
     const loadedServices = (servicesResult.data ?? []) as Service[];
-    const treatments = (treatmentsResult.data ?? []) as Treatment[];
+    const treatments = ((treatmentsResult.data ?? []) as Treatment[]).map(
+      (treatment) => ({
+        ...treatment,
+        duration_minutes: treatment.duration_minutes ?? null,
+        price_label: treatment.price_label ?? null,
+      }),
+    );
     setServices(
       loadedServices.map((service) => ({
         ...service,
-        treatments: treatments.filter(
-          (treatment) => treatment.service_id === service.id,
-        ),
+        treatments: treatments
+          .filter((treatment) => treatment.service_id === service.id)
+          .sort((a, b) => a.sort_order - b.sort_order),
       })),
     );
     setAvailability((availabilityResult.data ?? []) as Availability[]);
@@ -229,25 +235,86 @@ export default function AdminPage() {
     );
   }
 
-  function updateTreatments(serviceId: string, value: string) {
-    const names = value
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
+  function updateTreatmentRow(
+    serviceId: string,
+    treatmentId: string,
+    field: "name" | "duration_minutes" | "price_label",
+    value: string,
+  ) {
     setServices((current) =>
       current.map((service) =>
         service.id === serviceId
           ? {
               ...service,
-              treatments: names.map((name, index) => ({
-                id: `${serviceId}-${index}`,
-                service_id: serviceId,
-                name,
-                active: true,
-                sort_order: index + 1,
-                created_at: "",
-              })),
+              treatments: service.treatments.map((treatment) =>
+                treatment.id !== treatmentId
+                  ? treatment
+                  : {
+                      ...treatment,
+                      name:
+                        field === "name"
+                          ? value
+                          : treatment.name,
+                      duration_minutes:
+                        field === "duration_minutes"
+                          ? value.trim() === ""
+                            ? null
+                            : Number.isFinite(Number(value))
+                              ? Number(value)
+                              : treatment.duration_minutes
+                          : treatment.duration_minutes,
+                      price_label:
+                        field === "price_label"
+                          ? value.trim() === ""
+                            ? null
+                            : value
+                          : treatment.price_label,
+                    },
+              ),
+            }
+          : service,
+      ),
+    );
+  }
+
+  function addTreatmentRow(serviceId: string) {
+    const uid =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? `new-${crypto.randomUUID()}`
+        : `new-${Date.now()}`;
+    setServices((current) =>
+      current.map((service) =>
+        service.id === serviceId
+          ? {
+              ...service,
+              treatments: [
+                ...service.treatments,
+                {
+                  id: uid,
+                  service_id: serviceId,
+                  name: "",
+                  duration_minutes: null,
+                  price_label: null,
+                  active: true,
+                  sort_order: service.treatments.length + 1,
+                  created_at: "",
+                },
+              ],
+            }
+          : service,
+      ),
+    );
+  }
+
+  function removeTreatmentRow(serviceId: string, treatmentId: string) {
+    setServices((current) =>
+      current.map((service) =>
+        service.id === serviceId
+          ? {
+              ...service,
+              treatments: service.treatments.filter(
+                (treatment) => treatment.id !== treatmentId,
+              ),
             }
           : service,
       ),
@@ -274,15 +341,18 @@ export default function AdminPage() {
     }
 
     await supabase.from("treatments").delete().eq("service_id", service.id);
-    if (service.treatments.length > 0) {
-      await supabase.from("treatments").insert(
-        service.treatments.map((treatment, index) => ({
-          service_id: service.id,
-          name: treatment.name,
-          active: true,
-          sort_order: index + 1,
-        })),
-      );
+    const rows = service.treatments
+      .filter((treatment) => treatment.name.trim())
+      .map((treatment, index) => ({
+        service_id: service.id,
+        name: treatment.name.trim(),
+        active: treatment.active,
+        sort_order: index + 1,
+        duration_minutes: treatment.duration_minutes ?? null,
+        price_label: treatment.price_label?.trim() || null,
+      }));
+    if (rows.length > 0) {
+      await supabase.from("treatments").insert(rows);
     }
 
     setMessage("Service saved.");
@@ -751,14 +821,78 @@ export default function AdminPage() {
                     }
                   />
                 </div>
-                <div className="mt-3">
-                  <AdminTextarea
-                    label="Service details / treatments"
-                    value={service.treatments
-                      .map((treatment) => treatment.name)
-                      .join("\n")}
-                    onChange={(value) => updateTreatments(service.id, value)}
-                  />
+                <div className="mt-3 grid gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Treatments / areas
+                    </p>
+                    <p className="mt-1 text-sm text-[#776b5f]">
+                      Add one row per treatment or body area. Optional minutes and
+                      price override the service defaults for booking length and
+                      labels.
+                    </p>
+                  </div>
+                  {service.treatments.map((treatment) => (
+                    <div
+                      key={treatment.id}
+                      className="grid gap-3 rounded-2xl border border-[#dfcfb9]/90 bg-[#f6f0e7]/40 p-4 md:grid-cols-[minmax(0,2fr)_1fr_1fr_auto]"
+                    >
+                      <AdminInput
+                        label="Name"
+                        value={treatment.name}
+                        onChange={(value) =>
+                          updateTreatmentRow(service.id, treatment.id, "name", value)
+                        }
+                      />
+                      <AdminInput
+                        label="Minutes (optional)"
+                        type="number"
+                        value={
+                          treatment.duration_minutes != null
+                            ? String(treatment.duration_minutes)
+                            : ""
+                        }
+                        onChange={(value) =>
+                          updateTreatmentRow(
+                            service.id,
+                            treatment.id,
+                            "duration_minutes",
+                            value,
+                          )
+                        }
+                      />
+                      <AdminInput
+                        label="Price label (optional)"
+                        value={treatment.price_label ?? ""}
+                        onChange={(value) =>
+                          updateTreatmentRow(
+                            service.id,
+                            treatment.id,
+                            "price_label",
+                            value,
+                          )
+                        }
+                      />
+                      <div className="flex items-end pb-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeTreatmentRow(service.id, treatment.id)
+                          }
+                          className="rounded-full border border-[#d9c8ac] px-4 py-2 text-sm font-semibold text-[#8a3f35]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addTreatmentRow(service.id)}
+                    className="w-fit rounded-full border border-[#dfcfb9] px-4 py-2 text-sm font-semibold text-[#6f5638]"
+                  >
+                    Add treatment / area
+                  </button>
                 </div>
                 <button
                   onClick={() => saveService(service)}
@@ -1050,7 +1184,15 @@ export default function AdminPage() {
                     ?.treatments.filter((treatment) => treatment.active)
                     .map((treatment) => (
                       <option key={treatment.id} value={treatment.id}>
-                        {treatment.name}
+                        {[
+                          treatment.name,
+                          treatment.price_label,
+                          treatment.duration_minutes != null
+                            ? `${treatment.duration_minutes} min`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </option>
                     ))}
                 </select>
@@ -1214,6 +1356,20 @@ function positionTooltipByCursor(
   return { left, top };
 }
 
+function bookingBlockDurationMinutes(
+  booking: Booking,
+  services: ServiceWithTreatments[],
+): number {
+  const service = services.find((item) => item.id === booking.service_id);
+  if (!service) return 45;
+  const treatment = service.treatments.find(
+    (item) => item.id === booking.treatment_id,
+  );
+  return (
+    treatment?.duration_minutes ?? service.duration_minutes ?? 45
+  );
+}
+
 function BookingHoverTooltip({
   booking,
   services,
@@ -1223,8 +1379,7 @@ function BookingHoverTooltip({
   services: ServiceWithTreatments[];
   position: { x: number; y: number };
 }) {
-  const service = services.find((item) => item.id === booking.service_id);
-  const duration = service?.duration_minutes ?? 45;
+  const duration = bookingBlockDurationMinutes(booking, services);
   const label = serviceLabel(booking, services);
   const startM = parseTimeToMinutes(booking.requested_time);
   const endM = startM + duration;
@@ -1447,10 +1602,10 @@ function WeeklyCalendarGrid({
                   ))}
                   {dayBookings.map((booking) => {
                     const startM = parseTimeToMinutes(booking.requested_time);
-                    const service = services.find(
-                      (item) => item.id === booking.service_id,
+                    const duration = bookingBlockDurationMinutes(
+                      booking,
+                      services,
                     );
-                    const duration = service?.duration_minutes ?? 45;
                     const topRaw =
                       (startM - layout.displayStart) * layout.pxPerMinute;
                     const top = Math.max(0, topRaw);
@@ -1525,7 +1680,13 @@ function serviceLabel(booking: Booking, services: ServiceWithTreatments[]) {
   const treatment = service?.treatments.find(
     (item) => item.id === booking.treatment_id,
   );
-  return [service?.name, treatment?.name].filter(Boolean).join(" - ") || "Booking";
+  const main = [service?.name, treatment?.name]
+    .filter(Boolean)
+    .join(" - ");
+  if (!main) return "Booking";
+  return treatment?.price_label
+    ? `${main} (${treatment.price_label})`
+    : main;
 }
 
 function AdminShell({

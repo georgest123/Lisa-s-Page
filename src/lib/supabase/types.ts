@@ -17,6 +17,10 @@ export type Treatment = {
   id: string;
   service_id: string;
   name: string;
+  /** Overrides service.duration_minutes for booking length when set */
+  duration_minutes: number | null;
+  /** Optional price label for this treatment or area */
+  price_label: string | null;
   active: boolean;
   sort_order: number;
   created_at: string;

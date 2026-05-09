@@ -83,13 +83,21 @@ export default function BookPage() {
           supabase.from("booking_settings").select("*").single(),
         ]);
 
-      const treatments = (treatmentsResult.data ?? []) as Treatment[];
-      const loadedServices = ((servicesResult.data ?? []) as Service[]).map((service) => ({
-        ...service,
-        treatments: treatments.filter(
-          (treatment) => treatment.service_id === service.id,
-        ),
-      }));
+      const treatments = ((treatmentsResult.data ?? []) as Treatment[]).map(
+        (treatment) => ({
+          ...treatment,
+          duration_minutes: treatment.duration_minutes ?? null,
+          price_label: treatment.price_label ?? null,
+        }),
+      );
+      const loadedServices = ((servicesResult.data ?? []) as Service[]).map(
+        (service) => ({
+          ...service,
+          treatments: treatments
+            .filter((treatment) => treatment.service_id === service.id)
+            .sort((a, b) => a.sort_order - b.sort_order),
+        }),
+      );
 
       setServices(loadedServices);
       setAvailability((availabilityResult.data ?? []) as Availability[]);
@@ -106,6 +114,18 @@ export default function BookPage() {
   const selectedService = services.find(
     (service) => service.id === selectedServiceId,
   );
+
+  const selectedTreatment = selectedService?.treatments.find(
+    (treatment) => treatment.id === selectedTreatmentId,
+  );
+
+  const bookingDurationMinutes = useMemo(() => {
+    return (
+      selectedTreatment?.duration_minutes ??
+      selectedService?.duration_minutes ??
+      45
+    );
+  }, [selectedService, selectedTreatment]);
 
   const dateOptions = useMemo(() => {
     const options: string[] = [];
@@ -140,8 +160,7 @@ export default function BookPage() {
     );
     const start = minutesFromTime(slot.opens_at);
     const end =
-      minutesFromTime(slot.closes_at) -
-      (selectedService?.duration_minutes ?? 45);
+      minutesFromTime(slot.closes_at) - bookingDurationMinutes;
 
     const existing = new Set(
       bookings
@@ -163,7 +182,13 @@ export default function BookPage() {
     }
 
     return slots;
-  }, [availability, bookings, effectiveSelectedDate, selectedService, settings]);
+  }, [
+    availability,
+    bookings,
+    effectiveSelectedDate,
+    bookingDurationMinutes,
+    settings,
+  ]);
 
   const effectiveSelectedTime =
     selectedTime && timeOptions.includes(selectedTime)
@@ -274,7 +299,15 @@ export default function BookPage() {
                   onChange={setSelectedTreatmentId}
                   options={(selectedService?.treatments ?? []).map(
                     (treatment) => ({
-                      label: treatment.name,
+                      label: [
+                        treatment.name,
+                        treatment.price_label,
+                        treatment.duration_minutes != null
+                          ? `${treatment.duration_minutes} min`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
                       value: treatment.id,
                     }),
                   )}

@@ -1,9 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import skinRenewalImage from "../../skin-renewal.jpg";
+import { createAnonSupabaseClient } from "@/lib/supabase/anon";
+import type { Service, Treatment } from "@/lib/supabase/types";
 
-const services = [
+type MarketingVisual = "cryo" | "touch" | "face";
+
+type MarketingTile = {
+  key: string;
+  eyebrow: string;
+  title: string;
+  visual: MarketingVisual;
+  description: string;
+  price: string;
+  details: string[];
+  imageUrl: string | null;
+};
+
+const FALLBACK_TILES: MarketingTile[] = [
   {
+    key: "fallback-cryo",
     eyebrow: "Cryo 21",
     title: "Lipolysis Fat Freezing",
     visual: "cryo",
@@ -18,8 +34,10 @@ const services = [
       "Fat freezing",
       "Cellulite fat freezing",
     ],
+    imageUrl: null,
   },
   {
+    key: "fallback-touch",
     eyebrow: "Touch Skin 21",
     title: "Skin Renewal",
     visual: "touch",
@@ -38,8 +56,10 @@ const services = [
       "Skin tags",
       "Age and sun spots",
     ],
+    imageUrl: null,
   },
   {
+    key: "fallback-face",
     eyebrow: "Face 21",
     title: "Thermal Energy Sculpt",
     visual: "face",
@@ -56,8 +76,70 @@ const services = [
       "Sculpt",
       "Volumise",
     ],
+    imageUrl: null,
   },
 ];
+
+function inferMarketingVisual(name: string, index: number): MarketingVisual {
+  const lowered = name.toLowerCase();
+  if (lowered.includes("cryo")) return "cryo";
+  if (lowered.includes("touch")) return "touch";
+  if (lowered.includes("face")) return "face";
+  return (["cryo", "touch", "face"] as const)[index % 3];
+}
+
+async function loadMarketingTiles(): Promise<MarketingTile[]> {
+  const supabase = createAnonSupabaseClient();
+  if (!supabase) return FALLBACK_TILES;
+
+  const { data: servicesData, error } = await supabase
+    .from("services")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order");
+
+  if (error || !servicesData?.length) return FALLBACK_TILES;
+
+  const { data: treatmentsData } = await supabase
+    .from("treatments")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order");
+
+  const allTreatments = ((treatmentsData ?? []) as Treatment[]).map(
+    (treatment) => ({
+      ...treatment,
+      duration_minutes: treatment.duration_minutes ?? null,
+      price_label: treatment.price_label ?? null,
+    }),
+  );
+
+  return (servicesData as Service[]).map((service, index) => {
+    const serviceTreatments = allTreatments
+      .filter((treatment) => treatment.service_id === service.id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const details = serviceTreatments.map((treatment) => {
+      const parts: string[] = [treatment.name];
+      if (treatment.price_label) parts.push(treatment.price_label);
+      if (treatment.duration_minutes != null) {
+        parts.push(`${treatment.duration_minutes} min`);
+      }
+      return parts.join(" · ");
+    });
+
+    return {
+      key: service.id,
+      eyebrow: service.category,
+      title: service.name,
+      visual: inferMarketingVisual(service.name, index),
+      description: service.description ?? "",
+      price: service.price_label ?? "",
+      details:
+        details.length > 0 ? details : ["Ask during consultation"],
+      imageUrl: service.image_url,
+    };
+  });
+}
 
 const benefits = [
   "20+ years of beauty and holistic wellness expertise",
@@ -119,7 +201,9 @@ function TreatmentVisual({ visual }: { visual: string }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const tiles = await loadMarketingTiles();
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
       <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-1 sm:px-6 lg:px-8">
@@ -230,16 +314,27 @@ export default function Home() {
           </p>
         </div>
         <div className="grid gap-7 lg:grid-cols-3">
-          {services.map((service, index) => (
+          {tiles.map((tile, index) => (
             <details
-              key={service.title}
+              key={tile.key}
               className="group overflow-hidden rounded-[2.4rem] border border-[#dfcfb9] bg-[#fffaf2]/75 shadow-sm transition open:bg-[#fffaf2] open:shadow-2xl open:shadow-[#8b765d]/12"
               open={index === 0}
             >
               <summary className="cursor-pointer list-none p-5 marker:hidden md:p-6">
                 <div className="relative mb-6 h-80 overflow-hidden rounded-[2rem] bg-[#d9c7ae] md:h-96 lg:h-[28rem]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_20%,rgba(255,250,242,0.92),transparent_24%),radial-gradient(circle_at_76%_18%,rgba(231,198,121,0.48),transparent_18%),linear-gradient(145deg,#f8f0e5,#d8c5a9_48%,#5c5045)]" />
-                  {service.visual === "cryo" ? (
+                  {tile.imageUrl ? (
+                    <>
+                      <Image
+                        src={tile.imageUrl}
+                        alt={`${tile.title} treatment`}
+                        fill
+                        sizes="(min-width: 1024px) 28vw, 90vw"
+                        className="object-cover object-center"
+                      />
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
+                    </>
+                  ) : tile.visual === "cryo" ? (
                     <>
                       <Image
                         src="/lipolysis.png"
@@ -250,7 +345,7 @@ export default function Home() {
                       />
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
                     </>
-                  ) : service.visual === "touch" ? (
+                  ) : tile.visual === "touch" ? (
                     <>
                       <Image
                         src={skinRenewalImage}
@@ -261,7 +356,7 @@ export default function Home() {
                       />
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
                     </>
-                  ) : service.visual === "face" ? (
+                  ) : tile.visual === "face" ? (
                     <>
                       <Image
                         src="/termal-energy-sculpt.jpg"
@@ -273,24 +368,24 @@ export default function Home() {
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
                     </>
                   ) : (
-                    <TreatmentVisual visual={service.visual} />
+                    <TreatmentVisual visual={tile.visual} />
                   )}
                   <div className="absolute inset-x-6 bottom-6 flex min-h-28 flex-col justify-center rounded-[1.4rem] bg-[#111820]/82 p-4 text-[#fffaf2] backdrop-blur-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
-                      {service.eyebrow}
+                      {tile.eyebrow}
                     </p>
                     <h3 className="mt-2 text-2xl font-semibold">
-                      {service.title}
+                      {tile.title}
                     </h3>
                   </div>
                 </div>
                 <div className="flex items-start justify-between gap-5 px-2 pb-3">
                   <div>
                     <p className="inline-flex rounded-full bg-[#eee0ca] px-4 py-2 text-sm font-semibold text-[#806847]">
-                      {service.price}
+                      {tile.price || "Consultation"}
                     </p>
                     <p className="mt-4 leading-7 text-[#776b5f]">
-                      {service.description}
+                      {tile.description}
                     </p>
                   </div>
                   <span className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#b9945b] text-xl text-[#17130f] transition group-open:rotate-45">
@@ -303,9 +398,9 @@ export default function Home() {
                   Includes
                 </p>
                 <ul className="grid gap-3 text-sm font-medium text-[#4e463d]">
-                  {service.details.map((detail) => (
+                  {tile.details.map((detail, detailIndex) => (
                     <li
-                      key={detail}
+                      key={`${tile.key}-${detailIndex}`}
                       className="rounded-full bg-[#f1e6d6] px-4 py-3"
                     >
                       {detail}

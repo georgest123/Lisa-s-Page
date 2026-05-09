@@ -48,3 +48,14 @@ Admins can upload service pictures from `/admin`; the public site can read them.
 
 The public `/book` page creates confirmed bookings when booking mode is `instant`.
 Email notifications are not sent yet; add an email provider such as Resend for that.
+
+## Treatment duration and price (optional columns)
+
+If your database was created before these fields existed, run this once in the SQL Editor:
+
+```sql
+alter table public.treatments add column if not exists duration_minutes integer;
+alter table public.treatments add column if not exists price_label text;
+```
+
+Or re-run the full `schema.sql`, which includes the same `alter table` statements. Per-treatment `duration_minutes` overrides the parent service default for booking slot length; `price_label` is shown on the marketing site and booking UI when set.
