@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import skinRenewalImage from "../../skin-renewal.jpg";
 
 const services = [
@@ -124,7 +125,7 @@ export default function Home() {
       <nav className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-1 sm:px-6 lg:px-8">
         <a
           href="#"
-          className="relative -ml-3 h-24 w-56 sm:h-32 sm:w-72 md:-ml-6 md:h-48 md:w-[30rem]"
+          className="relative -ml-1 h-24 w-56 sm:ml-0 sm:h-32 sm:w-72 md:h-48 md:w-[30rem]"
           aria-label="L'Beau Clinique home"
         >
           <Image
@@ -141,12 +142,12 @@ export default function Home() {
           <a href="#about">About</a>
           <a href="#contact">Contact</a>
         </div>
-        <a
-          href="tel:+4407717096809"
+        <Link
+          href="/book"
           className="shrink-0 whitespace-nowrap rounded-full bg-[#111820] px-3 py-2 text-xs font-semibold text-[#fffaf2] shadow-lg shadow-[#b9945b]/20 transition hover:bg-[#3a3029] sm:px-4 sm:py-2.5 md:px-5 md:py-3 md:text-sm"
         >
           Book now
-        </a>
+        </Link>
       </nav>
 
       <section className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-6 pb-24 pt-0 lg:grid-cols-[1.04fr_0.96fr] lg:px-8 lg:pt-4">
@@ -164,12 +165,12 @@ export default function Home() {
             clinic led by Lisa and her expert team.
           </p>
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <a
-              href="mailto:lbeauclinique@gmail.com?subject=Book%20a%20consultation"
+            <Link
+              href="/book"
               className="rounded-full bg-[#b9945b] px-8 py-4 text-center font-semibold text-[#17130f] shadow-xl shadow-[#b9945b]/30 transition hover:-translate-y-0.5 hover:bg-[#d0ae72]"
             >
               Book consultation
-            </a>
+            </Link>
             <a
               href="#treatments"
               className="rounded-full border border-[#d9c8ac] bg-[#fffaf2]/70 px-8 py-4 text-center font-semibold text-[#6f5638] transition hover:-translate-y-0.5 hover:bg-[#fffaf2]"
@@ -203,7 +204,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="absolute -bottom-8 -left-6 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15">
+          <div className="absolute -bottom-12 left-1 rounded-[2rem] bg-[#fffaf2] p-5 shadow-xl shadow-[#8b765d]/15 md:-bottom-12 md:-left-6">
             <p className="text-4xl font-semibold">20+</p>
             <p className="mt-1 text-sm text-[#776b5f]">years experience</p>
           </div>
@@ -423,12 +424,12 @@ export default function Home() {
               Ready for your sculpt, strength and glow plan?
             </h2>
             <div className="relative mt-8 flex flex-col gap-4 sm:flex-row">
-              <a
-                href="tel:+4407717096809"
+              <Link
+                href="/book"
                 className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2] shadow-lg shadow-[#111820]/10"
               >
-                Call 07717 096809
-              </a>
+                Book online
+              </Link>
               <a
                 href="mailto:lbeauclinique@gmail.com"
                 className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"
@@ -461,6 +462,14 @@ export default function Home() {
               </div>
             </dl>
           </div>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Link
+            href="/admin"
+            className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638]"
+          >
+            Scheduling studio
+          </Link>
         </div>
       </section>
     </main>
