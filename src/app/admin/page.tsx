@@ -784,13 +784,22 @@ export default function AdminPage() {
               <MetricCard label="Open days" value={availability.filter((slot) => slot.enabled).length} />
               <MetricCard label="Booking mode" value="Instant" />
             </div>
-            <Panel title="Next integration steps">
+            <Panel title="Next steps">
+              <p className="mb-4 text-sm leading-relaxed text-[#776b5f]">
+                <span className="font-semibold text-[#5c4f42]">Already live: </span>
+                public booking to Supabase, admin login (OTP), editable services and
+                per-treatment time/price, images, weekly hours, bookings list, weekly
+                calendar with add/hover details, and the marketing homepage loading
+                active services from Supabase.
+              </p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Recommended next
+              </p>
               <ul className="grid gap-3">
                 {[
-                  "Public booking page now writes confirmed bookings to Supabase.",
-                  "Admin can edit services, upload images, and manage hours.",
-                  "Email notifications still need a provider such as Resend.",
-                  "Payments/deposits can be added after the booking flow is approved.",
+                  "Booking emails: send client + clinic notifications when a booking is created or changed (e.g. Resend + Supabase Database Webhook or Edge Function on bookings — separate from SMTP used for admin OTP).",
+                  "Polish: ICS calendar file or Google Calendar sync if you want appointments in an external calendar.",
+                  "Payments: optional deposits or card capture after you are happy with the live flow (Stripe / Payment Link, etc.).",
                 ].map((step) => (
                   <li
                     key={step}
