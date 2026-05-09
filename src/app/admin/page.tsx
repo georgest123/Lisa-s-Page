@@ -801,8 +801,9 @@ export default function AdminPage() {
                 <span className="font-semibold text-[#5c4f42]">Already live: </span>
                 public booking to Supabase, admin login (OTP), editable services and
                 per-treatment time/price, images, weekly hours, bookings list, weekly
-                calendar with add/hover details, marketing homepage from Supabase, and
-                booking emails via Resend once you add the env vars below.
+                calendar with add/hover details, marketing homepage from Supabase,
+                booking emails via Resend once you add the env vars below, and calendar
+                (.ics download plus Google Calendar link on /book and in client emails).
               </p>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 When you can — booking email &amp; production (don’t forget)
@@ -865,7 +866,6 @@ export default function AdminPage() {
               </p>
               <ul className="grid gap-3">
                 {[
-                  "ICS download or Google Calendar sync for appointments.",
                   "Deposits or card capture (e.g. Stripe) once you are happy with live bookings.",
                 ].map((step) => (
                   <li
