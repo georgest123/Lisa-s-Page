@@ -135,12 +135,21 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
 
     const newId = inserted.data.id;
     if (newId) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("bookings")
         .update({ google_calendar_event_id: newId })
         .eq("id", bookingId);
+      if (updateError) {
+        console.error(
+          "syncBookingWithGoogleCalendar: could not store google_calendar_event_id — run supabase/add_google_calendar_event_id.sql if column missing",
+          bookingId,
+          updateError.message,
+        );
+      }
     }
   } catch (error) {
-    console.error("syncBookingWithGoogleCalendar", bookingId, error);
+    const message = error instanceof Error ? error.message : String(error);
+    const details = (error as { response?: { data?: unknown } }).response?.data;
+    console.error("syncBookingWithGoogleCalendar", bookingId, message, details ?? "");
   }
 }

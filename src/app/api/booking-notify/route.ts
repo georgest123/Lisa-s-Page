@@ -40,8 +40,8 @@ export async function POST(request: Request) {
   const kind: BookingNotifyKind =
     payload.type === "UPDATE" ? "updated" : "created";
 
-  const result = await sendBookingNotifications(bookingId, kind);
   await syncBookingWithGoogleCalendar(bookingId);
+  const result = await sendBookingNotifications(bookingId, kind);
 
   if (!result.ok) {
     return NextResponse.json(

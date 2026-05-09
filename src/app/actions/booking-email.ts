@@ -9,10 +9,8 @@ export async function notifyBookingByEmail(
   kind: BookingNotifyKind,
 ): Promise<void> {
   try {
-    await Promise.all([
-      sendBookingNotifications(bookingId, kind),
-      syncBookingWithGoogleCalendar(bookingId),
-    ]);
+    await syncBookingWithGoogleCalendar(bookingId);
+    await sendBookingNotifications(bookingId, kind);
   } catch (error) {
     console.error("notifyBookingByEmail", error);
   }
