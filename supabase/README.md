@@ -74,6 +74,10 @@ Optional: each booking can **create or update an event** on your Google Calendar
 
 If these variables are unset, the app skips Calendar API calls and behaviour is unchanged.
 
+**Troubleshooting:** After deployment, set **`GOOGLE_CALENDAR_DIAGNOSTIC_SECRET`** to a long random string in Vercel, redeploy, then open  
+`https://YOUR_DOMAIN/api/health/google-calendar?secret=THAT_STRING`  
+It checks env vars, JWT auth, Google calendar access, and whether **`bookings.google_calendar_event_id`** exists — without creating events. Remove the secret from Vercel when finished.
+
 ## Treatment duration and price (optional columns)
 
 If your database was created before these fields existed, run this once in the SQL Editor:

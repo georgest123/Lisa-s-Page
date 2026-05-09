@@ -29,6 +29,137 @@ export function isGoogleCalendarSyncConfigured(): boolean {
   );
 }
 
+export type GoogleCalendarDiagnostics = {
+  ok: boolean;
+  summary: string;
+  env: {
+    clientEmailSet: boolean;
+    privateKeySet: boolean;
+    calendarId: string | null;
+  };
+  steps: {
+    jwtClient: "ok" | "fail";
+    apiCanReadCalendar: "ok" | "fail" | "skipped";
+    supabaseBookingsColumn: "ok" | "missing" | "unknown" | "skipped";
+  };
+  details?: unknown;
+};
+
+/** Used by /api/health/google-calendar — does not modify calendars or bookings. */
+export async function runGoogleCalendarDiagnostics(): Promise<GoogleCalendarDiagnostics> {
+  const env = {
+    clientEmailSet: Boolean(process.env.GOOGLE_CALENDAR_CLIENT_EMAIL?.trim()),
+    privateKeySet: Boolean(process.env.GOOGLE_CALENDAR_PRIVATE_KEY?.trim()),
+    calendarId: process.env.GOOGLE_CALENDAR_CALENDAR_ID?.trim() ?? null,
+  };
+
+  if (!env.clientEmailSet || !env.privateKeySet || !env.calendarId) {
+    return {
+      ok: false,
+      summary:
+        "Missing GOOGLE_CALENDAR_CLIENT_EMAIL, GOOGLE_CALENDAR_PRIVATE_KEY, or GOOGLE_CALENDAR_CALENDAR_ID on this deployment.",
+      env,
+      steps: {
+        jwtClient: "fail",
+        apiCanReadCalendar: "skipped",
+        supabaseBookingsColumn: "skipped",
+      },
+    };
+  }
+
+  const calendarApi = createJwtCalendarClient();
+  if (!calendarApi) {
+    return {
+      ok: false,
+      summary:
+        "Private key or client email invalid — check GOOGLE_CALENDAR_PRIVATE_KEY (use \\n newlines in Vercel).",
+      env,
+      steps: {
+        jwtClient: "fail",
+        apiCanReadCalendar: "skipped",
+        supabaseBookingsColumn: "skipped",
+      },
+    };
+  }
+
+  let supabaseBookingsColumn: GoogleCalendarDiagnostics["steps"]["supabaseBookingsColumn"] =
+    "skipped";
+  const supabase = createServiceRoleClient();
+  if (supabase) {
+    const { error } = await supabase
+      .from("bookings")
+      .select("id, google_calendar_event_id")
+      .limit(1);
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes("google_calendar_event_id") ||
+        msg.includes("schema cache") ||
+        msg.includes("does not exist")
+      ) {
+        supabaseBookingsColumn = "missing";
+      } else {
+        supabaseBookingsColumn = "unknown";
+      }
+    } else {
+      supabaseBookingsColumn = "ok";
+    }
+  }
+
+  try {
+    const res = await calendarApi.calendars.get({
+      calendarId: env.calendarId,
+    });
+
+    const calendarOk = Boolean(res.data);
+
+    const dbHint =
+      supabaseBookingsColumn === "missing"
+        ? " Run supabase/add_google_calendar_event_id.sql in Supabase."
+        : "";
+
+    return {
+      ok: calendarOk && supabaseBookingsColumn !== "missing",
+      summary: calendarOk
+        ? `Can access calendar "${res.data.summary ?? env.calendarId}".${dbHint ? ` ⚠ ${dbHint.trim()}` : ""}`
+        : "Unexpected empty response from Google.",
+      env,
+      steps: {
+        jwtClient: "ok",
+        apiCanReadCalendar: calendarOk ? "ok" : "fail",
+        supabaseBookingsColumn,
+      },
+      details: res.data,
+    };
+  } catch (error) {
+    const err = error as {
+      code?: number;
+      message?: string;
+      response?: { status?: number; data?: unknown };
+    };
+    const status = err.response?.status ?? err.code;
+    const body = err.response?.data;
+    const hint =
+      status === 404
+        ? " Calendar not found — check GOOGLE_CALENDAR_CALENDAR_ID (use your Gmail for the primary calendar)."
+        : status === 403
+          ? " Forbidden — share your calendar with the service account email (Make changes to events)."
+          : "";
+
+    return {
+      ok: false,
+      summary: `${err.message ?? "Google API error"}${hint}`,
+      env,
+      steps: {
+        jwtClient: "ok",
+        apiCanReadCalendar: "fail",
+        supabaseBookingsColumn,
+      },
+      details: body,
+    };
+  }
+}
+
 /**
  * Creates or updates an event on the clinic Google Calendar (service account).
  * Requires sharing that calendar with the service account email (see env docs).
