@@ -802,17 +802,71 @@ export default function AdminPage() {
                 public booking to Supabase, admin login (OTP), editable services and
                 per-treatment time/price, images, weekly hours, bookings list, weekly
                 calendar with add/hover details, marketing homepage from Supabase, and
-                booking confirmation emails via Resend when env vars are set (see
-                .env.example).
+                booking emails via Resend once you add the env vars below.
               </p>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                Recommended next
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                When you can — booking email &amp; production (don’t forget)
+              </p>
+              <ul className="mb-5 grid list-decimal gap-2 pl-5 text-sm leading-relaxed text-[#4e463d] marker:text-[#9b7a45]">
+                <li className="pl-1">
+                  In{" "}
+                  <strong className="font-semibold text-[#2a211b]">Resend</strong>:
+                  verify your clinic domain and create a sending identity you’re happy
+                  with (replace test sender{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    onboarding@resend.dev
+                  </code>
+                  ).
+                </li>
+                <li className="pl-1">
+                  In{" "}
+                  <strong className="font-semibold text-[#2a211b]">Vercel</strong>{" "}
+                  (or your host) environment variables: add{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    RESEND_API_KEY
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    SUPABASE_SERVICE_ROLE_KEY
+                  </code>{" "}
+                  (server-only), and{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_EMAIL_FROM
+                  </code>{" "}
+                  using your verified sender (see{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    .env.example
+                  </code>
+                  ). Redeploy after saving.
+                </li>
+                <li className="pl-1">
+                  Optional: set{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_ADMIN_EMAIL
+                  </code>{" "}
+                  if clinic notifications should go somewhere other than the default.
+                </li>
+                <li className="pl-1">
+                  Optional later: Supabase{" "}
+                  <strong className="font-semibold text-[#2a211b]">
+                    Database Webhook
+                  </strong>{" "}
+                  on <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">bookings</code>{" "}
+                  → <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">POST /api/booking-notify</code>{" "}
+                  with{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_NOTIFY_WEBHOOK_SECRET
+                  </code>{" "}
+                  — only if bookings might be created outside this website.
+                </li>
+              </ul>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Later ideas (optional)
               </p>
               <ul className="grid gap-3">
                 {[
-                  "Verify Resend: domain + BOOKING_EMAIL_FROM in production (replace onboarding@resend.dev). Optional Database Webhook to /api/booking-notify for bookings created outside this app.",
-                  "Polish: ICS calendar file or Google Calendar sync if you want appointments in an external calendar.",
-                  "Payments: optional deposits or card capture after you are happy with the live flow (Stripe / Payment Link, etc.).",
+                  "ICS download or Google Calendar sync for appointments.",
+                  "Deposits or card capture (e.g. Stripe) once you are happy with live bookings.",
                 ].map((step) => (
                   <li
                     key={step}
