@@ -1181,6 +1181,39 @@ function bookingStatusClasses(status: BookingStatus): string {
   }
 }
 
+/** Keeps the tooltip adjacent to the pointer; flips left/above only when needed. */
+function positionTooltipByCursor(
+  clientX: number,
+  clientY: number,
+  tooltipWidth: number,
+  tooltipHeight: number,
+): { left: number; top: number } {
+  const gap = 10;
+  const edge = 8;
+  if (typeof window === "undefined") {
+    return { left: clientX + gap, top: clientY + gap };
+  }
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const tw = Math.min(tooltipWidth, vw - 2 * edge);
+  const th = tooltipHeight;
+
+  let left = clientX + gap;
+  let top = clientY + gap;
+
+  if (left + tw > vw - edge) {
+    left = clientX - tw - gap;
+  }
+  if (top + th > vh - edge) {
+    top = clientY - th - gap;
+  }
+
+  left = Math.max(edge, Math.min(left, vw - tw - edge));
+  top = Math.max(edge, Math.min(top, vh - th - edge));
+
+  return { left, top };
+}
+
 function BookingHoverTooltip({
   booking,
   services,
@@ -1205,20 +1238,13 @@ function BookingHoverTooltip({
       })
     : "—";
 
-  const pad = 12;
   const width = 288;
   const estHeight = 300;
-  const vw =
-    typeof window !== "undefined" ? window.innerWidth : 800;
-  const vh =
-    typeof window !== "undefined" ? window.innerHeight : 600;
-  const left = Math.max(
-    pad,
-    Math.min(position.x + pad, vw - width - pad),
-  );
-  const top = Math.max(
-    pad,
-    Math.min(position.y + pad, vh - estHeight - pad),
+  const { left, top } = positionTooltipByCursor(
+    position.x,
+    position.y,
+    width,
+    estHeight,
   );
 
   return (
