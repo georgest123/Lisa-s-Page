@@ -265,6 +265,24 @@ export default function AdminPage() {
     await loadAdminData();
   }
 
+  async function deleteService(service: ServiceWithTreatments) {
+    if (!supabase) return;
+
+    const confirmed = window.confirm(
+      `Delete ${service.name}? This removes the service and its treatments from future bookings.`,
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("services")
+      .delete()
+      .eq("id", service.id);
+
+    setMessage(error ? error.message : "Service deleted.");
+    await loadAdminData();
+  }
+
   async function uploadServiceImage(service: ServiceWithTreatments, file: File) {
     if (!supabase) return;
 
@@ -487,16 +505,24 @@ export default function AdminPage() {
                       {service.name}
                     </h3>
                   </div>
-                  <button
-                    onClick={() => toggleService(service)}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                      service.active
-                        ? "bg-[#111820] text-[#fffaf2]"
-                        : "bg-[#f1e6d6] text-[#6f5638]"
-                    }`}
-                  >
-                    {service.active ? "Active" : "Hidden"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => toggleService(service)}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                        service.active
+                          ? "bg-[#111820] text-[#fffaf2]"
+                          : "bg-[#f1e6d6] text-[#6f5638]"
+                      }`}
+                    >
+                      {service.active ? "Active" : "Hidden"}
+                    </button>
+                    <button
+                      onClick={() => deleteService(service)}
+                      className="rounded-full border border-[#d9c8ac] px-4 py-2 text-sm font-semibold text-[#8a3f35]"
+                    >
+                      Delete service
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <AdminInput
