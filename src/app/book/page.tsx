@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -59,6 +60,7 @@ export default function BookPage() {
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState("");
+  const [lastBookingId, setLastBookingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const supabaseReady = hasSupabaseConfig();
@@ -83,13 +85,21 @@ export default function BookPage() {
           supabase.from("booking_settings").select("*").single(),
         ]);
 
-      const treatments = (treatmentsResult.data ?? []) as Treatment[];
-      const loadedServices = ((servicesResult.data ?? []) as Service[]).map((service) => ({
-        ...service,
-        treatments: treatments.filter(
-          (treatment) => treatment.service_id === service.id,
-        ),
-      }));
+      const treatments = ((treatmentsResult.data ?? []) as Treatment[]).map(
+        (treatment) => ({
+          ...treatment,
+          duration_minutes: treatment.duration_minutes ?? null,
+          price_label: treatment.price_label ?? null,
+        }),
+      );
+      const loadedServices = ((servicesResult.data ?? []) as Service[]).map(
+        (service) => ({
+          ...service,
+          treatments: treatments
+            .filter((treatment) => treatment.service_id === service.id)
+            .sort((a, b) => a.sort_order - b.sort_order),
+        }),
+      );
 
       setServices(loadedServices);
       setAvailability((availabilityResult.data ?? []) as Availability[]);
@@ -106,6 +116,18 @@ export default function BookPage() {
   const selectedService = services.find(
     (service) => service.id === selectedServiceId,
   );
+
+  const selectedTreatment = selectedService?.treatments.find(
+    (treatment) => treatment.id === selectedTreatmentId,
+  );
+
+  const bookingDurationMinutes = useMemo(() => {
+    return (
+      selectedTreatment?.duration_minutes ??
+      selectedService?.duration_minutes ??
+      45
+    );
+  }, [selectedService, selectedTreatment]);
 
   const dateOptions = useMemo(() => {
     const options: string[] = [];
@@ -140,8 +162,7 @@ export default function BookPage() {
     );
     const start = minutesFromTime(slot.opens_at);
     const end =
-      minutesFromTime(slot.closes_at) -
-      (selectedService?.duration_minutes ?? 45);
+      minutesFromTime(slot.closes_at) - bookingDurationMinutes;
 
     const existing = new Set(
       bookings
@@ -163,7 +184,13 @@ export default function BookPage() {
     }
 
     return slots;
-  }, [availability, bookings, effectiveSelectedDate, selectedService, settings]);
+  }, [
+    availability,
+    bookings,
+    effectiveSelectedDate,
+    bookingDurationMinutes,
+    settings,
+  ]);
 
   const effectiveSelectedTime =
     selectedTime && timeOptions.includes(selectedTime)
@@ -191,7 +218,9 @@ export default function BookPage() {
       return;
     }
 
+    const bookingId = crypto.randomUUID();
     const { error } = await supabase.from("bookings").insert({
+      id: bookingId,
       client_name: clientName,
       client_email: clientEmail,
       client_phone: clientPhone || null,
@@ -208,6 +237,9 @@ export default function BookPage() {
       return;
     }
 
+    void notifyBookingByEmail(bookingId, "created");
+
+    setLastBookingId(bookingId);
     setMessage(
       settings.booking_mode === "instant"
         ? "Your booking is confirmed. We will contact you if we need anything else."
@@ -274,7 +306,15 @@ export default function BookPage() {
                   onChange={setSelectedTreatmentId}
                   options={(selectedService?.treatments ?? []).map(
                     (treatment) => ({
-                      label: treatment.name,
+                      label: [
+                        treatment.name,
+                        treatment.price_label,
+                        treatment.duration_minutes != null
+                          ? `${treatment.duration_minutes} min`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · "),
                       value: treatment.id,
                     }),
                   )}
@@ -342,9 +382,31 @@ export default function BookPage() {
               </button>
 
               {message ? (
-                <p className="rounded-2xl bg-[#f1e6d6] px-5 py-4 text-sm font-semibold text-[#6f5638]">
-                  {message}
-                </p>
+                <div className="rounded-2xl bg-[#f1e6d6] px-5 py-4 text-sm text-[#6f5638]">
+                  <p className="font-semibold">{message}</p>
+                  {lastBookingId ? (
+                    <p className="mt-3 font-normal leading-relaxed">
+                      <span className="font-semibold text-[#5c4f42]">
+                        Add to your calendar:
+                      </span>{" "}
+                      <a
+                        href={`/api/bookings/${lastBookingId}/calendar`}
+                        className="font-semibold text-[#8b6914] underline underline-offset-2"
+                      >
+                        Download .ics
+                      </a>
+                      {" · "}
+                      <a
+                        href={`/api/bookings/${lastBookingId}/calendar?fmt=google`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-[#8b6914] underline underline-offset-2"
+                      >
+                        Google Calendar
+                      </a>
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ) : null}

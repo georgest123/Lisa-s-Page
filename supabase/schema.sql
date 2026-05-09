@@ -22,6 +22,9 @@ create table if not exists public.treatments (
   created_at timestamptz not null default now()
 );
 
+alter table public.treatments add column if not exists duration_minutes integer;
+alter table public.treatments add column if not exists price_label text;
+
 create table if not exists public.availability (
   id uuid primary key default gen_random_uuid(),
   day_of_week integer not null unique check (day_of_week between 0 and 6),
@@ -160,12 +163,17 @@ alter table public.availability enable row level security;
 alter table public.booking_settings enable row level security;
 alter table public.bookings enable row level security;
 
+-- Matches scheduling-studio login; checks JWT email (OTP puts it on the token).
 create or replace function public.is_admin()
 returns boolean
 language sql
 stable
 as $$
-  select coalesce(auth.jwt() ->> 'email', '') = 'lbeauclinique@gmail.com';
+  select lower(trim(coalesce(
+    nullif(auth.jwt() ->> 'email', ''),
+    nullif(auth.jwt() -> 'user_metadata' ->> 'email', ''),
+    ''
+  ))) = 'lbeauclinique@gmail.com';
 $$;
 
 drop policy if exists "Anyone can read active services" on public.services;

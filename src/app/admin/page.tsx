@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { notifyBookingByEmail } from "@/app/actions/booking-email";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -15,6 +17,43 @@ import type {
 
 type AdminTab = "overview" | "services" | "schedule" | "bookings";
 type ServiceWithTreatments = Service & { treatments: Treatment[] };
+
+type TreatmentInsertRow = {
+  service_id: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+  duration_minutes: number | null;
+  price_label: string | null;
+};
+
+async function insertTreatmentsWithFallback(
+  supabase: SupabaseClient,
+  rows: TreatmentInsertRow[],
+): Promise<{ error: { message: string; code?: string } | null }> {
+  if (rows.length === 0) return { error: null };
+
+  const attempt = await supabase.from("treatments").insert(rows);
+  if (!attempt.error) return { error: null };
+
+  const messageLower = attempt.error.message?.toLowerCase() ?? "";
+  const missingOptionalColumns =
+    attempt.error.code === "42703" ||
+    messageLower.includes("duration_minutes") ||
+    messageLower.includes("price_label") ||
+    messageLower.includes("does not exist");
+
+  if (!missingOptionalColumns) return { error: attempt.error };
+
+  const minimal = rows.map((row) => ({
+    service_id: row.service_id,
+    name: row.name,
+    active: row.active,
+    sort_order: row.sort_order,
+  }));
+  const retry = await supabase.from("treatments").insert(minimal);
+  return { error: retry.error };
+}
 
 const adminEmail = "lbeauclinique@gmail.com";
 
@@ -156,13 +195,19 @@ export default function AdminPage() {
     if (servicesResult.error) setMessage(servicesResult.error.message);
 
     const loadedServices = (servicesResult.data ?? []) as Service[];
-    const treatments = (treatmentsResult.data ?? []) as Treatment[];
+    const treatments = ((treatmentsResult.data ?? []) as Treatment[]).map(
+      (treatment) => ({
+        ...treatment,
+        duration_minutes: treatment.duration_minutes ?? null,
+        price_label: treatment.price_label ?? null,
+      }),
+    );
     setServices(
       loadedServices.map((service) => ({
         ...service,
-        treatments: treatments.filter(
-          (treatment) => treatment.service_id === service.id,
-        ),
+        treatments: treatments
+          .filter((treatment) => treatment.service_id === service.id)
+          .sort((a, b) => a.sort_order - b.sort_order),
       })),
     );
     setAvailability((availabilityResult.data ?? []) as Availability[]);
@@ -229,25 +274,86 @@ export default function AdminPage() {
     );
   }
 
-  function updateTreatments(serviceId: string, value: string) {
-    const names = value
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
-
+  function updateTreatmentRow(
+    serviceId: string,
+    treatmentId: string,
+    field: "name" | "duration_minutes" | "price_label",
+    value: string,
+  ) {
     setServices((current) =>
       current.map((service) =>
         service.id === serviceId
           ? {
               ...service,
-              treatments: names.map((name, index) => ({
-                id: `${serviceId}-${index}`,
-                service_id: serviceId,
-                name,
-                active: true,
-                sort_order: index + 1,
-                created_at: "",
-              })),
+              treatments: service.treatments.map((treatment) =>
+                treatment.id !== treatmentId
+                  ? treatment
+                  : {
+                      ...treatment,
+                      name:
+                        field === "name"
+                          ? value
+                          : treatment.name,
+                      duration_minutes:
+                        field === "duration_minutes"
+                          ? value.trim() === ""
+                            ? null
+                            : Number.isFinite(Number(value))
+                              ? Number(value)
+                              : treatment.duration_minutes
+                          : treatment.duration_minutes,
+                      price_label:
+                        field === "price_label"
+                          ? value.trim() === ""
+                            ? null
+                            : value
+                          : treatment.price_label,
+                    },
+              ),
+            }
+          : service,
+      ),
+    );
+  }
+
+  function addTreatmentRow(serviceId: string) {
+    const uid =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? `new-${crypto.randomUUID()}`
+        : `new-${Date.now()}`;
+    setServices((current) =>
+      current.map((service) =>
+        service.id === serviceId
+          ? {
+              ...service,
+              treatments: [
+                ...service.treatments,
+                {
+                  id: uid,
+                  service_id: serviceId,
+                  name: "",
+                  duration_minutes: null,
+                  price_label: null,
+                  active: true,
+                  sort_order: service.treatments.length + 1,
+                  created_at: "",
+                },
+              ],
+            }
+          : service,
+      ),
+    );
+  }
+
+  function removeTreatmentRow(serviceId: string, treatmentId: string) {
+    setServices((current) =>
+      current.map((service) =>
+        service.id === serviceId
+          ? {
+              ...service,
+              treatments: service.treatments.filter(
+                (treatment) => treatment.id !== treatmentId,
+              ),
             }
           : service,
       ),
@@ -273,16 +379,52 @@ export default function AdminPage() {
       return;
     }
 
-    await supabase.from("treatments").delete().eq("service_id", service.id);
-    if (service.treatments.length > 0) {
-      await supabase.from("treatments").insert(
-        service.treatments.map((treatment, index) => ({
+    const rows = service.treatments
+      .filter((treatment) => treatment.name.trim())
+      .map((treatment, index) => {
+        const dm = treatment.duration_minutes;
+        const durationResolved =
+          dm != null && Number.isFinite(Number(dm))
+            ? Math.round(Number(dm))
+            : null;
+        return {
           service_id: service.id,
-          name: treatment.name,
-          active: true,
+          name: treatment.name.trim(),
+          active: treatment.active ?? true,
           sort_order: index + 1,
-        })),
+          duration_minutes: durationResolved,
+          price_label: treatment.price_label?.trim() || null,
+        };
+      });
+
+    const { error: deleteError } = await supabase
+      .from("treatments")
+      .delete()
+      .eq("service_id", service.id);
+
+    if (deleteError) {
+      setMessage(`Treatments could not be updated (delete): ${deleteError.message}`);
+      await loadAdminData();
+      return;
+    }
+
+    if (rows.length > 0) {
+      const { error: insertError } = await insertTreatmentsWithFallback(
+        supabase,
+        rows,
       );
+      if (insertError) {
+        const hint =
+          insertError.message?.toLowerCase().includes("policy") ||
+          insertError.message?.toLowerCase().includes("permission")
+            ? " Sign in again as lbeauclinique@gmail.com and run supabase/fix_admin_access.sql in the Supabase SQL editor if needed."
+            : "";
+        setMessage(
+          `Treatments did not save: ${insertError.message}.${hint}`,
+        );
+        await loadAdminData();
+        return;
+      }
     }
 
     setMessage("Service saved.");
@@ -348,11 +490,20 @@ export default function AdminPage() {
     }
 
     const { data } = supabase.storage.from("service-images").getPublicUrl(path);
-    await supabase
+    const { error: updateError } = await supabase
       .from("services")
       .update({ image_url: data.publicUrl })
       .eq("id", service.id);
-    setMessage("Image uploaded.");
+
+    if (updateError) {
+      setMessage(
+        `Storage upload succeeded but the photo URL did not save on the service: ${updateError.message}. Sign out and sign in again as ${adminEmail}, or run supabase/fix_admin_access.sql in Supabase.`,
+      );
+      await loadAdminData();
+      return;
+    }
+
+    setMessage("Image uploaded and linked to this service.");
     await loadAdminData();
   }
 
@@ -400,7 +551,15 @@ export default function AdminPage() {
 
   async function updateBookingStatus(id: string, status: BookingStatus) {
     if (!supabase) return;
-    await supabase.from("bookings").update({ status }).eq("id", id);
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status })
+      .eq("id", id);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    void notifyBookingByEmail(id, "updated");
     await loadAdminData();
   }
 
@@ -448,7 +607,9 @@ export default function AdminPage() {
       rawTime.length === 5 ? `${rawTime}:00` : rawTime.length >= 8 ? rawTime : `${rawTime}:00`;
     setAddBookingSaving(true);
     setMessage("");
+    const bookingId = crypto.randomUUID();
     const { error } = await supabase.from("bookings").insert({
+      id: bookingId,
       client_name: addBookingForm.clientName.trim(),
       client_email: addBookingForm.clientEmail.trim(),
       client_phone: addBookingForm.clientPhone.trim() || null,
@@ -464,6 +625,7 @@ export default function AdminPage() {
       setMessage(error.message);
       return;
     }
+    void notifyBookingByEmail(bookingId, "created");
     setMessage("Booking added.");
     setAddBookingOpen(false);
     await loadAdminData();
@@ -634,13 +796,77 @@ export default function AdminPage() {
               <MetricCard label="Open days" value={availability.filter((slot) => slot.enabled).length} />
               <MetricCard label="Booking mode" value="Instant" />
             </div>
-            <Panel title="Next integration steps">
+            <Panel title="Next steps">
+              <p className="mb-4 text-sm leading-relaxed text-[#776b5f]">
+                <span className="font-semibold text-[#5c4f42]">Already live: </span>
+                public booking to Supabase, admin login (OTP), editable services and
+                per-treatment time/price, images, weekly hours, bookings list, weekly
+                calendar with add/hover details, marketing homepage from Supabase,
+                booking emails via Resend once you add the env vars below, and calendar
+                (.ics download plus Google Calendar link on /book and in client emails).
+              </p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                When you can — booking email &amp; production (don’t forget)
+              </p>
+              <ul className="mb-5 grid list-decimal gap-2 pl-5 text-sm leading-relaxed text-[#4e463d] marker:text-[#9b7a45]">
+                <li className="pl-1">
+                  In{" "}
+                  <strong className="font-semibold text-[#2a211b]">Resend</strong>:
+                  verify your clinic domain and create a sending identity you’re happy
+                  with (replace test sender{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    onboarding@resend.dev
+                  </code>
+                  ).
+                </li>
+                <li className="pl-1">
+                  In{" "}
+                  <strong className="font-semibold text-[#2a211b]">Vercel</strong>{" "}
+                  (or your host) environment variables: add{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    RESEND_API_KEY
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    SUPABASE_SERVICE_ROLE_KEY
+                  </code>{" "}
+                  (server-only), and{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_EMAIL_FROM
+                  </code>{" "}
+                  using your verified sender (see{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    .env.example
+                  </code>
+                  ). Redeploy after saving.
+                </li>
+                <li className="pl-1">
+                  Optional: set{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_ADMIN_EMAIL
+                  </code>{" "}
+                  if clinic notifications should go somewhere other than the default.
+                </li>
+                <li className="pl-1">
+                  Optional later: Supabase{" "}
+                  <strong className="font-semibold text-[#2a211b]">
+                    Database Webhook
+                  </strong>{" "}
+                  on <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">bookings</code>{" "}
+                  → <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">POST /api/booking-notify</code>{" "}
+                  with{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_NOTIFY_WEBHOOK_SECRET
+                  </code>{" "}
+                  — only if bookings might be created outside this website.
+                </li>
+              </ul>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                Later ideas (optional)
+              </p>
               <ul className="grid gap-3">
                 {[
-                  "Public booking page now writes confirmed bookings to Supabase.",
-                  "Admin can edit services, upload images, and manage hours.",
-                  "Email notifications still need a provider such as Resend.",
-                  "Payments/deposits can be added after the booking flow is approved.",
+                  "Deposits or card capture (e.g. Stripe) once you are happy with live bookings.",
                 ].map((step) => (
                   <li
                     key={step}
@@ -701,7 +927,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <AdminInput
                     label="Service name"
                     value={service.name}
@@ -729,18 +955,50 @@ export default function AdminPage() {
                       updateService(service.id, "price_label", value)
                     }
                   />
-                  <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                    Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) uploadServiceImage(service, file);
-                      }}
-                      className="text-sm normal-case tracking-normal text-[#776b5f]"
-                    />
-                  </label>
+                </div>
+                <div className="mt-4 grid gap-4 rounded-2xl border border-[#dfcfb9]/90 bg-[#fffaf2]/60 p-4 md:grid-cols-[1fr_auto] md:items-start md:gap-6">
+                  <div className="grid gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Website tile photo
+                    </p>
+                    <p className="text-sm text-[#776b5f]">
+                      This exact image appears on the public homepage for this service
+                      only. Without it, the tile shows a neutral placeholder (not another
+                      treatment&apos;s photo).
+                    </p>
+                    <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Upload image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) uploadServiceImage(service, file);
+                        }}
+                        className="text-sm normal-case tracking-normal text-[#776b5f]"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative mx-auto aspect-[4/3] w-full max-w-[260px] overflow-hidden rounded-2xl border border-[#dfcfb9] bg-[#e8dcc8] shadow-inner shadow-[#8b765d]/10">
+                    {service.image_url ? (
+                      <Image
+                        src={service.image_url}
+                        alt=""
+                        fill
+                        sizes="260px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-1 px-4 text-center">
+                        <p className="text-sm font-semibold text-[#6f5638]">
+                          No photo yet
+                        </p>
+                        <p className="text-xs text-[#776b5f]">
+                          Upload to show this service on the website
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3">
                   <AdminTextarea
@@ -751,17 +1009,82 @@ export default function AdminPage() {
                     }
                   />
                 </div>
-                <div className="mt-3">
-                  <AdminTextarea
-                    label="Service details / treatments"
-                    value={service.treatments
-                      .map((treatment) => treatment.name)
-                      .join("\n")}
-                    onChange={(value) => updateTreatments(service.id, value)}
-                  />
+                <div className="mt-3 grid gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Treatments / areas
+                    </p>
+                    <p className="mt-1 text-sm text-[#776b5f]">
+                      Add one row per treatment or body area. Optional minutes and
+                      price override the service defaults for booking length and
+                      labels.
+                    </p>
+                  </div>
+                  {service.treatments.map((treatment) => (
+                    <div
+                      key={treatment.id}
+                      className="grid gap-3 rounded-2xl border border-[#dfcfb9]/90 bg-[#f6f0e7]/40 p-4 md:grid-cols-[minmax(0,2fr)_1fr_1fr_auto]"
+                    >
+                      <AdminInput
+                        label="Name"
+                        value={treatment.name}
+                        onChange={(value) =>
+                          updateTreatmentRow(service.id, treatment.id, "name", value)
+                        }
+                      />
+                      <AdminInput
+                        label="Minutes (optional)"
+                        type="number"
+                        value={
+                          treatment.duration_minutes != null
+                            ? String(treatment.duration_minutes)
+                            : ""
+                        }
+                        onChange={(value) =>
+                          updateTreatmentRow(
+                            service.id,
+                            treatment.id,
+                            "duration_minutes",
+                            value,
+                          )
+                        }
+                      />
+                      <AdminInput
+                        label="Price label (optional)"
+                        value={treatment.price_label ?? ""}
+                        onChange={(value) =>
+                          updateTreatmentRow(
+                            service.id,
+                            treatment.id,
+                            "price_label",
+                            value,
+                          )
+                        }
+                      />
+                      <div className="flex items-end pb-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeTreatmentRow(service.id, treatment.id)
+                          }
+                          className="rounded-full border border-[#d9c8ac] px-4 py-2 text-sm font-semibold text-[#8a3f35]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addTreatmentRow(service.id)}
+                    className="w-fit rounded-full border border-[#dfcfb9] px-4 py-2 text-sm font-semibold text-[#6f5638]"
+                  >
+                    Add treatment / area
+                  </button>
                 </div>
                 <button
-                  onClick={() => saveService(service)}
+                  type="button"
+                  onClick={() => void saveService(service)}
                   className="mt-4 rounded-full bg-[#b9945b] px-5 py-3 text-sm font-semibold text-[#17130f]"
                 >
                   Save service
@@ -1050,7 +1373,15 @@ export default function AdminPage() {
                     ?.treatments.filter((treatment) => treatment.active)
                     .map((treatment) => (
                       <option key={treatment.id} value={treatment.id}>
-                        {treatment.name}
+                        {[
+                          treatment.name,
+                          treatment.price_label,
+                          treatment.duration_minutes != null
+                            ? `${treatment.duration_minutes} min`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </option>
                     ))}
                 </select>
@@ -1181,17 +1512,28 @@ function bookingStatusClasses(status: BookingStatus): string {
   }
 }
 
-function BookingHoverTooltip({
+function bookingBlockDurationMinutes(
+  booking: Booking,
+  services: ServiceWithTreatments[],
+): number {
+  const service = services.find((item) => item.id === booking.service_id);
+  if (!service) return 45;
+  const treatment = service.treatments.find(
+    (item) => item.id === booking.treatment_id,
+  );
+  return (
+    treatment?.duration_minutes ?? service.duration_minutes ?? 45
+  );
+}
+
+function BookingHoverCard({
   booking,
   services,
-  position,
 }: {
   booking: Booking;
   services: ServiceWithTreatments[];
-  position: { x: number; y: number };
 }) {
-  const service = services.find((item) => item.id === booking.service_id);
-  const duration = service?.duration_minutes ?? 45;
+  const duration = bookingBlockDurationMinutes(booking, services);
   const label = serviceLabel(booking, services);
   const startM = parseTimeToMinutes(booking.requested_time);
   const endM = startM + duration;
@@ -1205,27 +1547,8 @@ function BookingHoverTooltip({
       })
     : "—";
 
-  const pad = 12;
-  const width = 288;
-  const estHeight = 300;
-  const vw =
-    typeof window !== "undefined" ? window.innerWidth : 800;
-  const vh =
-    typeof window !== "undefined" ? window.innerHeight : 600;
-  const left = Math.max(
-    pad,
-    Math.min(position.x + pad, vw - width - pad),
-  );
-  const top = Math.max(
-    pad,
-    Math.min(position.y + pad, vh - estHeight - pad),
-  );
-
   return (
-    <div
-      className="pointer-events-none fixed z-[250] w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-4 text-sm shadow-2xl ring-1 ring-[#8b765d]/15"
-      style={{ left, top }}
-    >
+    <div className="rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-3 text-xs shadow-2xl ring-1 ring-[#8b765d]/15 sm:text-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
         Booking details
       </p>
@@ -1283,12 +1606,6 @@ function WeeklyCalendarGrid({
   slotIntervalMinutes: number;
   onDaySlotClick?: (date: string, timeMinutes: number) => void;
 }) {
-  const [hoverTip, setHoverTip] = useState<{
-    booking: Booking;
-    x: number;
-    y: number;
-  } | null>(null);
-
   const layout = useMemo(() => {
     const bounds = weekGridBounds(weekDates, availability);
     const displayStart = Math.floor(bounds.start / 60) * 60;
@@ -1337,7 +1654,7 @@ function WeeklyCalendarGrid({
 
   return (
     <>
-    <div className="overflow-x-auto rounded-2xl border border-[#dfcfb9] bg-[#fffaf2]/40">
+    <div className="overflow-x-auto overflow-y-visible rounded-2xl border border-[#dfcfb9] bg-[#fffaf2]/40">
       <div className="min-w-[720px]">
         <div className="flex border-b border-[#dfcfb9] bg-[#fffaf2]">
           <div className="sticky left-0 z-30 w-12 shrink-0 border-r border-[#dfcfb9] bg-[#f6f0e7] sm:w-14" />
@@ -1377,10 +1694,11 @@ function WeeklyCalendarGrid({
           </div>
 
           <div className="grid min-w-0 flex-1 grid-cols-7 gap-px bg-[#dfcfb9]/60">
-            {weekDates.map((dayDate) => {
+            {weekDates.map((dayDate, dayColumnIndex) => {
               const key = toISODateLocal(dayDate);
               const isToday = key === todayKey;
               const dayBookings = bookingsByDay.get(key) ?? [];
+              const pinTooltipLeft = dayColumnIndex >= 5;
               return (
                 <div
                   key={key}
@@ -1404,7 +1722,7 @@ function WeeklyCalendarGrid({
                     );
                     onDaySlotClick(key, minutes);
                   }}
-                  className={`relative min-w-0 bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""} ${onDaySlotClick ? "cursor-pointer" : ""}`}
+                  className={`relative min-w-0 overflow-visible bg-[#fffaf2]/90 ${isToday ? "ring-2 ring-[#b9945b]/35 ring-inset" : ""} ${onDaySlotClick ? "cursor-pointer" : ""}`}
                   style={{
                     minHeight: layout.totalHeight,
                     height: layout.totalHeight,
@@ -1421,10 +1739,10 @@ function WeeklyCalendarGrid({
                   ))}
                   {dayBookings.map((booking) => {
                     const startM = parseTimeToMinutes(booking.requested_time);
-                    const service = services.find(
-                      (item) => item.id === booking.service_id,
+                    const duration = bookingBlockDurationMinutes(
+                      booking,
+                      services,
                     );
-                    const duration = service?.duration_minutes ?? 45;
                     const topRaw =
                       (startM - layout.displayStart) * layout.pxPerMinute;
                     const top = Math.max(0, topRaw);
@@ -1439,40 +1757,31 @@ function WeeklyCalendarGrid({
                       <div
                         key={booking.id}
                         data-booking-block
-                        className={`absolute left-0.5 right-0.5 z-[6] overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:left-1 sm:right-1 sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                        className="group absolute left-0.5 right-0.5 z-[6] hover:z-[35] sm:left-1 sm:right-1"
                         style={{ top, height }}
                         onClick={(event) => event.stopPropagation()}
-                        onMouseEnter={(event) =>
-                          setHoverTip({
-                            booking,
-                            x: event.clientX,
-                            y: event.clientY,
-                          })
-                        }
-                        onMouseMove={(event) =>
-                          setHoverTip((current) =>
-                            current?.booking.id === booking.id
-                              ? {
-                                  booking,
-                                  x: event.clientX,
-                                  y: event.clientY,
-                                }
-                              : current,
-                          )
-                        }
-                        onMouseLeave={() =>
-                          setHoverTip((current) =>
-                            current?.booking.id === booking.id ? null : current,
-                          )
-                        }
                       >
-                        <p className="truncate font-semibold leading-tight">
-                          {formatHourLabel(startM)}
-                        </p>
-                        <p className="truncate leading-tight">{booking.client_name}</p>
-                        <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
-                          {label}
-                        </p>
+                        <div
+                          className={`relative z-[1] flex h-full flex-col overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                        >
+                          <p className="truncate font-semibold leading-tight">
+                            {formatHourLabel(startM)}
+                          </p>
+                          <p className="truncate leading-tight">
+                            {booking.client_name}
+                          </p>
+                          <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
+                            {label}
+                          </p>
+                        </div>
+                        <div
+                          className={`pointer-events-none invisible absolute top-0 z-[100] w-[min(18rem,calc(100vw-3rem))] opacity-0 shadow-2xl transition-opacity duration-150 group-hover:visible group-hover:opacity-100 ${pinTooltipLeft ? "right-full mr-1" : "left-full ml-1"}`}
+                        >
+                          <BookingHoverCard
+                            booking={booking}
+                            services={services}
+                          />
+                        </div>
                       </div>
                     );
                   })}
@@ -1483,13 +1792,6 @@ function WeeklyCalendarGrid({
         </div>
       </div>
     </div>
-    {hoverTip ? (
-      <BookingHoverTooltip
-        booking={hoverTip.booking}
-        services={services}
-        position={{ x: hoverTip.x, y: hoverTip.y }}
-      />
-    ) : null}
     </>
   );
 }
@@ -1499,7 +1801,13 @@ function serviceLabel(booking: Booking, services: ServiceWithTreatments[]) {
   const treatment = service?.treatments.find(
     (item) => item.id === booking.treatment_id,
   );
-  return [service?.name, treatment?.name].filter(Boolean).join(" - ") || "Booking";
+  const main = [service?.name, treatment?.name]
+    .filter(Boolean)
+    .join(" - ");
+  if (!main) return "Booking";
+  return treatment?.price_label
+    ? `${main} (${treatment.price_label})`
+    : main;
 }
 
 function AdminShell({
