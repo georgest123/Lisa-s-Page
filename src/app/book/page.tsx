@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -216,7 +217,9 @@ export default function BookPage() {
       return;
     }
 
+    const bookingId = crypto.randomUUID();
     const { error } = await supabase.from("bookings").insert({
+      id: bookingId,
       client_name: clientName,
       client_email: clientEmail,
       client_phone: clientPhone || null,
@@ -232,6 +235,8 @@ export default function BookPage() {
       setMessage(error.message);
       return;
     }
+
+    void notifyBookingByEmail(bookingId, "created");
 
     setMessage(
       settings.booking_mode === "instant"

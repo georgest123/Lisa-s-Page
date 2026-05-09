@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
@@ -550,7 +551,15 @@ export default function AdminPage() {
 
   async function updateBookingStatus(id: string, status: BookingStatus) {
     if (!supabase) return;
-    await supabase.from("bookings").update({ status }).eq("id", id);
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status })
+      .eq("id", id);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    void notifyBookingByEmail(id, "updated");
     await loadAdminData();
   }
 
@@ -598,7 +607,9 @@ export default function AdminPage() {
       rawTime.length === 5 ? `${rawTime}:00` : rawTime.length >= 8 ? rawTime : `${rawTime}:00`;
     setAddBookingSaving(true);
     setMessage("");
+    const bookingId = crypto.randomUUID();
     const { error } = await supabase.from("bookings").insert({
+      id: bookingId,
       client_name: addBookingForm.clientName.trim(),
       client_email: addBookingForm.clientEmail.trim(),
       client_phone: addBookingForm.clientPhone.trim() || null,
@@ -614,6 +625,7 @@ export default function AdminPage() {
       setMessage(error.message);
       return;
     }
+    void notifyBookingByEmail(bookingId, "created");
     setMessage("Booking added.");
     setAddBookingOpen(false);
     await loadAdminData();
@@ -789,15 +801,16 @@ export default function AdminPage() {
                 <span className="font-semibold text-[#5c4f42]">Already live: </span>
                 public booking to Supabase, admin login (OTP), editable services and
                 per-treatment time/price, images, weekly hours, bookings list, weekly
-                calendar with add/hover details, and the marketing homepage loading
-                active services from Supabase.
+                calendar with add/hover details, marketing homepage from Supabase, and
+                booking confirmation emails via Resend when env vars are set (see
+                .env.example).
               </p>
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 Recommended next
               </p>
               <ul className="grid gap-3">
                 {[
-                  "Booking emails: send client + clinic notifications when a booking is created or changed (e.g. Resend + Supabase Database Webhook or Edge Function on bookings — separate from SMTP used for admin OTP).",
+                  "Verify Resend: domain + BOOKING_EMAIL_FROM in production (replace onboarding@resend.dev). Optional Database Webhook to /api/booking-notify for bookings created outside this app.",
                   "Polish: ICS calendar file or Google Calendar sync if you want appointments in an external calendar.",
                   "Payments: optional deposits or card capture after you are happy with the live flow (Stripe / Payment Link, etc.).",
                 ].map((step) => (

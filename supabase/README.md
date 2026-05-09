@@ -47,7 +47,21 @@ Admins can upload service pictures from `/admin`; the public site can read them.
 ## Instant booking
 
 The public `/book` page creates confirmed bookings when booking mode is `instant`.
-Email notifications are not sent yet; add an email provider such as Resend for that.
+
+## Booking emails (Resend)
+
+Set these **server-only** variables (e.g. Vercel project settings):
+
+- `RESEND_API_KEY` — from [Resend](https://resend.com) API keys
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase **Settings → API → service_role** (never expose to the browser)
+- `BOOKING_EMAIL_FROM` — verified sender, e.g. `L Beaux <bookings@yourdomain.com>` (use Resend’s test sender `onboarding@resend.dev` only while testing)
+- `BOOKING_ADMIN_EMAIL` (optional) — overrides clinic copy recipient; defaults to `notification_email` from `booking_settings` or `lbeauclinique@gmail.com`
+
+After a booking is created from `/book` or `/admin`, or when status changes in admin, the app sends **two** emails: one to the client and one to the clinic (if `RESEND_API_KEY` is missing, sends are skipped with no error to the user).
+
+**Optional webhook:** Create the same secret as `BOOKING_NOTIFY_WEBHOOK_SECRET` and add a Supabase **Database Webhook** on `bookings` pointing to `POST https://YOUR_DOMAIN/api/booking-notify` with header `Authorization: Bearer YOUR_SECRET`. Only needed for bookings inserted outside the Next.js app (otherwise server actions already notify).
+
+See `.env.example` in the repo.
 
 ## Treatment duration and price (optional columns)
 
