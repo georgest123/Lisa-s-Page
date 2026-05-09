@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -340,19 +341,44 @@ export default function AdminPage() {
       return;
     }
 
-    await supabase.from("treatments").delete().eq("service_id", service.id);
     const rows = service.treatments
       .filter((treatment) => treatment.name.trim())
-      .map((treatment, index) => ({
-        service_id: service.id,
-        name: treatment.name.trim(),
-        active: treatment.active,
-        sort_order: index + 1,
-        duration_minutes: treatment.duration_minutes ?? null,
-        price_label: treatment.price_label?.trim() || null,
-      }));
+      .map((treatment, index) => {
+        const dm = treatment.duration_minutes;
+        const durationResolved =
+          dm != null && Number.isFinite(Number(dm))
+            ? Math.round(Number(dm))
+            : null;
+        return {
+          service_id: service.id,
+          name: treatment.name.trim(),
+          active: treatment.active ?? true,
+          sort_order: index + 1,
+          duration_minutes: durationResolved,
+          price_label: treatment.price_label?.trim() || null,
+        };
+      });
+
+    const { error: deleteError } = await supabase
+      .from("treatments")
+      .delete()
+      .eq("service_id", service.id);
+
+    if (deleteError) {
+      setMessage(`Treatments could not be updated (delete): ${deleteError.message}`);
+      await loadAdminData();
+      return;
+    }
+
     if (rows.length > 0) {
-      await supabase.from("treatments").insert(rows);
+      const { error: insertError } = await supabase.from("treatments").insert(rows);
+      if (insertError) {
+        setMessage(
+          `Treatments did not save: ${insertError.message}. If this mentions a missing column, run the latest SQL in supabase/schema.sql (treatment duration/price columns).`,
+        );
+        await loadAdminData();
+        return;
+      }
     }
 
     setMessage("Service saved.");
@@ -771,7 +797,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <AdminInput
                     label="Service name"
                     value={service.name}
@@ -799,18 +825,50 @@ export default function AdminPage() {
                       updateService(service.id, "price_label", value)
                     }
                   />
-                  <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                    Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) uploadServiceImage(service, file);
-                      }}
-                      className="text-sm normal-case tracking-normal text-[#776b5f]"
-                    />
-                  </label>
+                </div>
+                <div className="mt-4 grid gap-4 rounded-2xl border border-[#dfcfb9]/90 bg-[#fffaf2]/60 p-4 md:grid-cols-[1fr_auto] md:items-start md:gap-6">
+                  <div className="grid gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Website tile photo
+                    </p>
+                    <p className="text-sm text-[#776b5f]">
+                      This exact image appears on the public homepage for this service
+                      only. Without it, the tile shows a neutral placeholder (not another
+                      treatment&apos;s photo).
+                    </p>
+                    <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                      Upload image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) uploadServiceImage(service, file);
+                        }}
+                        className="text-sm normal-case tracking-normal text-[#776b5f]"
+                      />
+                    </label>
+                  </div>
+                  <div className="relative mx-auto aspect-[4/3] w-full max-w-[260px] overflow-hidden rounded-2xl border border-[#dfcfb9] bg-[#e8dcc8] shadow-inner shadow-[#8b765d]/10">
+                    {service.image_url ? (
+                      <Image
+                        src={service.image_url}
+                        alt=""
+                        fill
+                        sizes="260px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-1 px-4 text-center">
+                        <p className="text-sm font-semibold text-[#6f5638]">
+                          No photo yet
+                        </p>
+                        <p className="text-xs text-[#776b5f]">
+                          Upload to show this service on the website
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-3">
                   <AdminTextarea
@@ -895,7 +953,8 @@ export default function AdminPage() {
                   </button>
                 </div>
                 <button
-                  onClick={() => saveService(service)}
+                  type="button"
+                  onClick={() => void saveService(service)}
                   className="mt-4 rounded-full bg-[#b9945b] px-5 py-3 text-sm font-semibold text-[#17130f]"
                 >
                   Save service

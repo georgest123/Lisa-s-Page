@@ -334,41 +334,53 @@ export default async function Home() {
                       />
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
                     </>
-                  ) : tile.visual === "cryo" ? (
-                    <>
-                      <Image
-                        src="/lipolysis.png"
-                        alt="Lipolysis fat freezing treatment"
-                        fill
-                        sizes="(min-width: 1024px) 28vw, 90vw"
-                        className="object-cover object-center"
-                      />
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
-                    </>
-                  ) : tile.visual === "touch" ? (
-                    <>
-                      <Image
-                        src={skinRenewalImage}
-                        alt="Touch Skin 21 skin renewal treatment"
-                        fill
-                        sizes="(min-width: 1024px) 28vw, 90vw"
-                        className="object-cover object-center"
-                      />
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
-                    </>
-                  ) : tile.visual === "face" ? (
-                    <>
-                      <Image
-                        src="/termal-energy-sculpt.jpg"
-                        alt="Face 21 thermal energy sculpt treatment"
-                        fill
-                        sizes="(min-width: 1024px) 28vw, 90vw"
-                        className="object-cover object-center"
-                      />
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
-                    </>
+                  ) : tile.key.startsWith("fallback-") ? (
+                    tile.visual === "cryo" ? (
+                      <>
+                        <Image
+                          src="/lipolysis.png"
+                          alt="Lipolysis fat freezing treatment"
+                          fill
+                          sizes="(min-width: 1024px) 28vw, 90vw"
+                          className="object-cover object-center"
+                        />
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
+                      </>
+                    ) : tile.visual === "touch" ? (
+                      <>
+                        <Image
+                          src={skinRenewalImage}
+                          alt="Touch Skin 21 skin renewal treatment"
+                          fill
+                          sizes="(min-width: 1024px) 28vw, 90vw"
+                          className="object-cover object-center"
+                        />
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
+                      </>
+                    ) : tile.visual === "face" ? (
+                      <>
+                        <Image
+                          src="/termal-energy-sculpt.jpg"
+                          alt="Face 21 thermal energy sculpt treatment"
+                          fill
+                          sizes="(min-width: 1024px) 28vw, 90vw"
+                          className="object-cover object-center"
+                        />
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(17,24,32,0.02),rgba(17,24,32,0.3)),radial-gradient(circle_at_80%_20%,rgba(216,182,111,0.22),transparent_24%)]" />
+                      </>
+                    ) : (
+                      <TreatmentVisual visual={tile.visual} />
+                    )
                   ) : (
-                    <TreatmentVisual visual={tile.visual} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[linear-gradient(160deg,#ede6dc,#d4c4af)] px-6 text-center">
+                      <p className="text-sm font-semibold text-[#5c4f42]">
+                        Photo not set
+                      </p>
+                      <p className="mt-2 text-xs leading-relaxed text-[#776b5f]">
+                        Upload an image for this service in Scheduling studio →
+                        Services so it appears here.
+                      </p>
+                    </div>
                   )}
                   <div className="absolute inset-x-6 bottom-6 flex min-h-28 flex-col justify-center rounded-[1.4rem] bg-[#111820]/82 p-4 text-[#fffaf2] backdrop-blur-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8b66f]">
