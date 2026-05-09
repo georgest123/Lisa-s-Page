@@ -1,8 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_noStore } from "next/cache";
 import skinRenewalImage from "../../skin-renewal.jpg";
 import { createAnonSupabaseClient } from "@/lib/supabase/anon";
 import type { Service, Treatment } from "@/lib/supabase/types";
+
+/** Homepage reads live Supabase data; do not statically freeze treatments at build time. */
+export const dynamic = "force-dynamic";
 
 type MarketingVisual = "cryo" | "touch" | "face";
 
@@ -88,7 +93,31 @@ function inferMarketingVisual(name: string, index: number): MarketingVisual {
   return (["cryo", "touch", "face"] as const)[index % 3];
 }
 
+async function fetchAllActiveTreatments(
+  supabase: SupabaseClient,
+): Promise<Treatment[]> {
+  const pageSize = 500;
+  let from = 0;
+  const accumulated: Treatment[] = [];
+  while (true) {
+    const { data, error } = await supabase
+      .from("treatments")
+      .select("*")
+      .eq("active", true)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) break;
+    if (!data?.length) break;
+    accumulated.push(...(data as Treatment[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return accumulated;
+}
+
 async function loadMarketingTiles(): Promise<MarketingTile[]> {
+  unstable_noStore();
   const supabase = createAnonSupabaseClient();
   if (!supabase) return FALLBACK_TILES;
 
@@ -100,13 +129,7 @@ async function loadMarketingTiles(): Promise<MarketingTile[]> {
 
   if (error || !servicesData?.length) return FALLBACK_TILES;
 
-  const { data: treatmentsData } = await supabase
-    .from("treatments")
-    .select("*")
-    .eq("active", true)
-    .order("sort_order");
-
-  const allTreatments = ((treatmentsData ?? []) as Treatment[]).map(
+  const allTreatments = (await fetchAllActiveTreatments(supabase)).map(
     (treatment) => ({
       ...treatment,
       duration_minutes: treatment.duration_minutes ?? null,
