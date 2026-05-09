@@ -163,12 +163,17 @@ alter table public.availability enable row level security;
 alter table public.booking_settings enable row level security;
 alter table public.bookings enable row level security;
 
+-- Matches scheduling-studio login; checks JWT email (OTP puts it on the token).
 create or replace function public.is_admin()
 returns boolean
 language sql
 stable
 as $$
-  select coalesce(auth.jwt() ->> 'email', '') = 'lbeauclinique@gmail.com';
+  select lower(trim(coalesce(
+    nullif(auth.jwt() ->> 'email', ''),
+    nullif(auth.jwt() -> 'user_metadata' ->> 'email', ''),
+    ''
+  ))) = 'lbeauclinique@gmail.com';
 $$;
 
 drop policy if exists "Anyone can read active services" on public.services;

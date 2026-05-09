@@ -59,3 +59,7 @@ alter table public.treatments add column if not exists price_label text;
 ```
 
 Or re-run the full `schema.sql`, which includes the same `alter table` statements. Per-treatment `duration_minutes` overrides the parent service default for booking slot length; `price_label` is shown on the marketing site and booking UI when set.
+
+## Admin uploads / saves blocked (RLS)
+
+If images upload but do not appear on the service, or treatments never stay saved, the JWT email may not match what `is_admin()` expects. Run **`supabase/fix_admin_access.sql`** once in the SQL Editor (it updates `is_admin()` to read email from the token and `user_metadata`). Then sign out of `/admin` and sign in again with `lbeauclinique@gmail.com`.

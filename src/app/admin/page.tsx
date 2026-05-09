@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -16,6 +16,43 @@ import type {
 
 type AdminTab = "overview" | "services" | "schedule" | "bookings";
 type ServiceWithTreatments = Service & { treatments: Treatment[] };
+
+type TreatmentInsertRow = {
+  service_id: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+  duration_minutes: number | null;
+  price_label: string | null;
+};
+
+async function insertTreatmentsWithFallback(
+  supabase: SupabaseClient,
+  rows: TreatmentInsertRow[],
+): Promise<{ error: { message: string; code?: string } | null }> {
+  if (rows.length === 0) return { error: null };
+
+  const attempt = await supabase.from("treatments").insert(rows);
+  if (!attempt.error) return { error: null };
+
+  const messageLower = attempt.error.message?.toLowerCase() ?? "";
+  const missingOptionalColumns =
+    attempt.error.code === "42703" ||
+    messageLower.includes("duration_minutes") ||
+    messageLower.includes("price_label") ||
+    messageLower.includes("does not exist");
+
+  if (!missingOptionalColumns) return { error: attempt.error };
+
+  const minimal = rows.map((row) => ({
+    service_id: row.service_id,
+    name: row.name,
+    active: row.active,
+    sort_order: row.sort_order,
+  }));
+  const retry = await supabase.from("treatments").insert(minimal);
+  return { error: retry.error };
+}
 
 const adminEmail = "lbeauclinique@gmail.com";
 
@@ -371,10 +408,18 @@ export default function AdminPage() {
     }
 
     if (rows.length > 0) {
-      const { error: insertError } = await supabase.from("treatments").insert(rows);
+      const { error: insertError } = await insertTreatmentsWithFallback(
+        supabase,
+        rows,
+      );
       if (insertError) {
+        const hint =
+          insertError.message?.toLowerCase().includes("policy") ||
+          insertError.message?.toLowerCase().includes("permission")
+            ? " Sign in again as lbeauclinique@gmail.com and run supabase/fix_admin_access.sql in the Supabase SQL editor if needed."
+            : "";
         setMessage(
-          `Treatments did not save: ${insertError.message}. If this mentions a missing column, run the latest SQL in supabase/schema.sql (treatment duration/price columns).`,
+          `Treatments did not save: ${insertError.message}.${hint}`,
         );
         await loadAdminData();
         return;
@@ -444,11 +489,20 @@ export default function AdminPage() {
     }
 
     const { data } = supabase.storage.from("service-images").getPublicUrl(path);
-    await supabase
+    const { error: updateError } = await supabase
       .from("services")
       .update({ image_url: data.publicUrl })
       .eq("id", service.id);
-    setMessage("Image uploaded.");
+
+    if (updateError) {
+      setMessage(
+        `Storage upload succeeded but the photo URL did not save on the service: ${updateError.message}. Sign out and sign in again as ${adminEmail}, or run supabase/fix_admin_access.sql in Supabase.`,
+      );
+      await loadAdminData();
+      return;
+    }
+
+    setMessage("Image uploaded and linked to this service.");
     await loadAdminData();
   }
 
