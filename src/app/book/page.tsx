@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
+import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -237,6 +238,7 @@ export default function BookPage() {
       return;
     }
 
+    await requestGoogleCalendarSync(bookingId);
     void notifyBookingByEmail(bookingId, "created");
 
     setLastBookingId(bookingId);

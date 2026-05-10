@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
+import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
@@ -634,6 +635,7 @@ export default function AdminPage() {
       setMessage(error.message);
       return;
     }
+    await requestGoogleCalendarSync(id);
     void notifyBookingByEmail(id, "updated");
     await loadAdminData();
   }
@@ -700,6 +702,7 @@ export default function AdminPage() {
       setMessage(error.message);
       return;
     }
+    await requestGoogleCalendarSync(bookingId);
     void notifyBookingByEmail(bookingId, "created");
     setMessage("Booking added.");
     setAddBookingOpen(false);
