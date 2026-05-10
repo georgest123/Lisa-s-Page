@@ -93,6 +93,9 @@ export async function POST(request: Request) {
       },
     ],
     customer_email: booking.client_email,
+    payment_intent_data: {
+      receipt_email: booking.client_email,
+    },
     client_reference_id: bookingId,
     metadata: { booking_id: bookingId },
     success_url: `${siteUrl}/book/deposit-return?session_id={CHECKOUT_SESSION_ID}`,
