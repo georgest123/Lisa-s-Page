@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPublicSiteUrl } from "@/lib/site-url";
+import { getPublicSiteUrlFromRequest } from "@/lib/site-url";
 import { getStripe, getStripeCurrency } from "@/lib/stripe-server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     .update({ deposit_cents: depositCents })
     .eq("id", bookingId);
 
-  const siteUrl = getPublicSiteUrl();
+  const siteUrl = getPublicSiteUrlFromRequest(request);
   const currency = getStripeCurrency();
 
   const session = await stripe.checkout.sessions.create({
