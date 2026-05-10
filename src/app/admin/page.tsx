@@ -881,7 +881,7 @@ export default function AdminPage() {
                   </code>{" "}
                   in Vercel; run{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/add_google_calendar_event_id.sql
+                    supabase/ensure_google_calendar_sync.sql
                   </code>
                   . See <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">supabase/README.md</code>.
                 </li>

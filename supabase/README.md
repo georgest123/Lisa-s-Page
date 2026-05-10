@@ -70,13 +70,15 @@ Optional: each booking can **create or update an event** on your Google Calendar
 1. In [Google Cloud Console](https://console.cloud.google.com): create a project, enable **Google Calendar API**, create a **service account**, add a JSON key.
 2. Copy the service account **client email** and **private key** into Vercel env (see `.env.example`). Set **`GOOGLE_CALENDAR_CALENDAR_ID`** to the calendar id — usually your Gmail address (e.g. `lbeauclinique@gmail.com`).
 3. In Google Calendar **settings → Share with specific people**, share **your** clinic calendar with the **service account email** and grant **Make changes to events**.
-4. In Supabase SQL Editor, run **`supabase/add_google_calendar_event_id.sql`** (or ensure `schema.sql` has been applied) so `bookings.google_calendar_event_id` exists.
+4. In Supabase SQL Editor, run **`supabase/ensure_google_calendar_sync.sql`** once (recommended). It adds `google_calendar_event_id`, sync metadata columns, and an **`ensure_booking_calendar_columns`** RPC the app calls so the schema stays aligned. Fresh installs can rely on full **`schema.sql`** instead.
 
 If these variables are unset, the app skips Calendar API calls and behaviour is unchanged.
 
+**If sync still fails:** open **`bookings`** in Supabase Table Editor and check **`google_calendar_sync_error`** on the row — the server writes the last Google/API or DB error there. **`google_calendar_last_success_at`** is set when an event is created or updated successfully.
+
 **Troubleshooting:** After deployment, set **`GOOGLE_CALENDAR_DIAGNOSTIC_SECRET`** to a long random string in Vercel, redeploy, then open  
 `https://YOUR_DOMAIN/api/health/google-calendar?secret=THAT_STRING`  
-It checks env vars, JWT auth, Google calendar access, and whether **`bookings.google_calendar_event_id`** exists — without creating events. Remove the secret from Vercel when finished.
+It checks env vars, JWT auth, Google calendar access, and whether calendar sync columns exist — without creating events. Remove the secret from Vercel when finished.
 
 ## Treatment duration and price (optional columns)
 

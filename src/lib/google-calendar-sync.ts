@@ -29,6 +29,116 @@ export function isGoogleCalendarSyncConfigured(): boolean {
   );
 }
 
+type ServiceSupabase = NonNullable<ReturnType<typeof createServiceRoleClient>>;
+
+async function ensureBookingCalendarColumns(supabase: ServiceSupabase): Promise<void> {
+  const { error } = await supabase.rpc("ensure_booking_calendar_columns");
+  if (error) {
+    console.warn(
+      "ensure_booking_calendar_columns:",
+      error.message,
+      "Run supabase/ensure_google_calendar_sync.sql in Supabase SQL Editor once.",
+    );
+  }
+}
+
+function formatGoogleSyncError(error: unknown): string {
+  const err = error as {
+    message?: string;
+    response?: { data?: unknown; status?: number };
+  };
+  const bits = [err.message ?? String(error)];
+  if (err.response?.data !== undefined) {
+    bits.push(JSON.stringify(err.response.data));
+  }
+  return bits.filter(Boolean).join(" ").slice(0, 500);
+}
+
+function shouldRetryHttp(err: unknown): boolean {
+  const e = err as { response?: { status?: number }; code?: number };
+  const status = e.response?.status ?? e.code;
+  return status === 429 || status === 503 || status === 408 || status === 500;
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+async function callWithRetries<T>(fn: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      if (attempt < 2 && shouldRetryHttp(e)) {
+        await sleep(400 * 2 ** attempt);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw last;
+}
+
+async function persistCalendarSyncFailure(
+  supabase: ServiceSupabase,
+  bookingId: string,
+  message: string,
+): Promise<void> {
+  const truncated = message.slice(0, 500);
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("bookings")
+    .update({
+      google_calendar_sync_error: truncated,
+      google_calendar_sync_attempted_at: now,
+    })
+    .eq("id", bookingId);
+  if (error) {
+    console.error(
+      "persistCalendarSyncFailure",
+      bookingId,
+      error.message,
+      "— run supabase/ensure_google_calendar_sync.sql",
+    );
+  }
+}
+
+async function persistCalendarSyncSuccess(
+  supabase: ServiceSupabase,
+  bookingId: string,
+  patch: {
+    google_calendar_event_id?: string | null;
+    clearEventId?: boolean;
+  },
+): Promise<void> {
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    google_calendar_sync_error: null,
+    google_calendar_last_success_at: now,
+    google_calendar_sync_attempted_at: now,
+  };
+  if (patch.clearEventId) {
+    payload.google_calendar_event_id = null;
+  } else if (patch.google_calendar_event_id !== undefined) {
+    payload.google_calendar_event_id = patch.google_calendar_event_id;
+  }
+
+  const { error } = await supabase
+    .from("bookings")
+    .update(payload)
+    .eq("id", bookingId);
+  if (error) {
+    console.error(
+      "persistCalendarSyncSuccess",
+      bookingId,
+      error.message,
+      "— run supabase/ensure_google_calendar_sync.sql",
+    );
+  }
+}
+
 export type GoogleCalendarDiagnostics = {
   ok: boolean;
   summary: string;
@@ -88,12 +198,14 @@ export async function runGoogleCalendarDiagnostics(): Promise<GoogleCalendarDiag
   if (supabase) {
     const { error } = await supabase
       .from("bookings")
-      .select("id, google_calendar_event_id")
+      .select(
+        "id, google_calendar_event_id, google_calendar_sync_error, google_calendar_sync_attempted_at",
+      )
       .limit(1);
     if (error) {
       const msg = error.message.toLowerCase();
       if (
-        msg.includes("google_calendar_event_id") ||
+        msg.includes("google_calendar") ||
         msg.includes("schema cache") ||
         msg.includes("does not exist")
       ) {
@@ -115,7 +227,7 @@ export async function runGoogleCalendarDiagnostics(): Promise<GoogleCalendarDiag
 
     const dbHint =
       supabaseBookingsColumn === "missing"
-        ? " Run supabase/add_google_calendar_event_id.sql in Supabase."
+        ? " Run supabase/ensure_google_calendar_sync.sql in Supabase SQL Editor."
         : "";
 
     return {
@@ -167,17 +279,28 @@ export async function runGoogleCalendarDiagnostics(): Promise<GoogleCalendarDiag
 export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<void> {
   if (!isGoogleCalendarSyncConfigured()) return;
 
+  const supabase = createServiceRoleClient();
+  if (!supabase) return;
+
+  await ensureBookingCalendarColumns(supabase);
+
+  const calendarApi = createJwtCalendarClient();
+  if (!calendarApi) {
+    console.error(
+      "syncBookingWithGoogleCalendar: JWT client missing — check GOOGLE_CALENDAR_PRIVATE_KEY",
+      bookingId,
+    );
+    return;
+  }
+
+  const calendarId = process.env.GOOGLE_CALENDAR_CALENDAR_ID!.trim();
+
   try {
-    const supabase = createServiceRoleClient();
-    if (!supabase) return;
-
-    const calendarApi = createJwtCalendarClient();
-    if (!calendarApi) return;
-
-    const calendarId = process.env.GOOGLE_CALENDAR_CALENDAR_ID!.trim();
-
     const details = await loadBookingDetailsForCalendar(supabase, bookingId);
-    if (!details) return;
+    if (!details) {
+      console.warn("syncBookingWithGoogleCalendar: booking not found", bookingId);
+      return;
+    }
 
     const { booking } = details;
     const googleEventId = booking.google_calendar_event_id ?? null;
@@ -191,7 +314,11 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
     );
 
     if (!artifacts) {
-      console.warn("syncBookingWithGoogleCalendar: invalid date/time", bookingId);
+      await persistCalendarSyncFailure(
+        supabase,
+        bookingId,
+        "Invalid booking date or time for calendar sync.",
+      );
       return;
     }
 
@@ -215,7 +342,14 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
 
     const startIso = artifacts.startLondon.toISO();
     const endIso = artifacts.endLondon.toISO();
-    if (!startIso || !endIso) return;
+    if (!startIso || !endIso) {
+      await persistCalendarSyncFailure(
+        supabase,
+        bookingId,
+        "Could not compute event start/end (timezone).",
+      );
+      return;
+    }
 
     const eventBody = {
       summary: summaryTitle,
@@ -234,53 +368,55 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
     if (booking.status === "cancelled") {
       if (googleEventId) {
         try {
-          await calendarApi.events.delete({
-            calendarId,
-            eventId: googleEventId,
-          });
+          await callWithRetries(() =>
+            calendarApi.events.delete({
+              calendarId,
+              eventId: googleEventId,
+            }),
+          );
         } catch (err: unknown) {
           const code = (err as { code?: number }).code;
           if (code !== 404) throw err;
         }
-        await supabase
-          .from("bookings")
-          .update({ google_calendar_event_id: null })
-          .eq("id", bookingId);
+        await persistCalendarSyncSuccess(supabase, bookingId, { clearEventId: true });
       }
       return;
     }
 
     if (googleEventId) {
-      await calendarApi.events.update({
-        calendarId,
-        eventId: googleEventId,
-        requestBody: eventBody,
-      });
+      await callWithRetries(() =>
+        calendarApi.events.update({
+          calendarId,
+          eventId: googleEventId,
+          requestBody: eventBody,
+        }),
+      );
+      await persistCalendarSyncSuccess(supabase, bookingId, {});
       return;
     }
 
-    const inserted = await calendarApi.events.insert({
-      calendarId,
-      requestBody: eventBody,
-    });
+    const inserted = await callWithRetries(() =>
+      calendarApi.events.insert({
+        calendarId,
+        requestBody: eventBody,
+      }),
+    );
 
     const newId = inserted.data.id;
     if (newId) {
-      const { error: updateError } = await supabase
-        .from("bookings")
-        .update({ google_calendar_event_id: newId })
-        .eq("id", bookingId);
-      if (updateError) {
-        console.error(
-          "syncBookingWithGoogleCalendar: could not store google_calendar_event_id — run supabase/add_google_calendar_event_id.sql if column missing",
-          bookingId,
-          updateError.message,
-        );
-      }
+      await persistCalendarSyncSuccess(supabase, bookingId, {
+        google_calendar_event_id: newId,
+      });
+    } else {
+      await persistCalendarSyncFailure(
+        supabase,
+        bookingId,
+        "Google Calendar insert returned no event id.",
+      );
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const details = (error as { response?: { data?: unknown } }).response?.data;
-    console.error("syncBookingWithGoogleCalendar", bookingId, message, details ?? "");
+    const msg = formatGoogleSyncError(error);
+    console.error("syncBookingWithGoogleCalendar", bookingId, msg);
+    await persistCalendarSyncFailure(supabase, bookingId, msg);
   }
 }
