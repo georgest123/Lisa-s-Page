@@ -305,6 +305,21 @@ export async function runGoogleCalendarDiagnostics(): Promise<GoogleCalendarDiag
   }
 }
 
+/** New inserts can lag behind service-role reads by a beat — retry before giving up. */
+async function loadBookingDetailsWithRetry(
+  supabase: ServiceSupabase,
+  bookingId: string,
+): Promise<Awaited<ReturnType<typeof loadBookingDetailsForCalendar>>> {
+  const maxAttempts = 15;
+  const delayMs = 100;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const details = await loadBookingDetailsForCalendar(supabase, bookingId);
+    if (details) return details;
+    await sleep(delayMs);
+  }
+  return null;
+}
+
 /**
  * Creates or updates an event on the clinic Google Calendar (service account).
  * Requires sharing that calendar with the service account email (see env docs).
@@ -340,9 +355,17 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
   const calendarId = process.env.GOOGLE_CALENDAR_CALENDAR_ID!.trim();
 
   try {
-    const details = await loadBookingDetailsForCalendar(supabase, bookingId);
+    const details = await loadBookingDetailsWithRetry(supabase, bookingId);
     if (!details) {
-      console.warn("syncBookingWithGoogleCalendar: booking not found", bookingId);
+      console.warn(
+        "syncBookingWithGoogleCalendar: booking not found after retries",
+        bookingId,
+      );
+      await persistCalendarSyncFailure(
+        supabase,
+        bookingId,
+        "Could not load booking row for sync (timing). Open admin and tap Retry.",
+      );
       return;
     }
 
