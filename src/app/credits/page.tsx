@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+const CONTACT_EMAIL = "georgestaicu37@gmail.com";
+
 export const metadata: Metadata = {
   title: "About this website | George Staicu",
   description:
@@ -20,7 +22,14 @@ export default function CreditsPage() {
         <p className="mt-6 text-lg leading-relaxed text-[#776b5f]">
           I&apos;m{" "}
           <span className="font-semibold text-[#2a211b]">George Staicu</span>.
-          Below is what was designed and engineered end-to-end for this clinic
+          Reach me at{" "}
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="font-semibold text-[#6f5638] underline underline-offset-[3px] decoration-[#b9945b]/70 transition hover:text-[#2a211b]"
+          >
+            {CONTACT_EMAIL}
+          </a>
+          . Below is what was designed and engineered end-to-end for this clinic
           — a modern public presence plus a full operational backend clients and
           staff use every day.
         </p>
@@ -111,9 +120,14 @@ export default function CreditsPage() {
         </section>
 
         <p className="mt-14 text-sm leading-relaxed text-[#776b5f]">
-          Interested in something similar for your business? Reach out via the
-          same channels you use to find George — this page is a compact snapshot
-          of the depth behind a polished surface.
+          Interested in something similar for your business? Email{" "}
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="font-semibold text-[#6f5638] underline underline-offset-2 hover:text-[#2a211b]"
+          >
+            {CONTACT_EMAIL}
+          </a>
+          .
         </p>
 
         <Link
