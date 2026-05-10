@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendBookingNotifications } from "@/lib/booking-emails";
 import type { BookingNotifyKind } from "@/lib/booking-emails";
+import { syncBookingWithGoogleCalendar } from "@/lib/google-calendar-sync";
 
 /**
  * Optional: Supabase Database Webhook (INSERT/UPDATE on bookings) → POST here with
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
   const kind: BookingNotifyKind =
     payload.type === "UPDATE" ? "updated" : "created";
 
+  await syncBookingWithGoogleCalendar(bookingId);
   const result = await sendBookingNotifications(bookingId, kind);
+
   if (!result.ok) {
     return NextResponse.json(
       { error: result.error ?? "Send failed" },

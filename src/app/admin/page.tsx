@@ -802,8 +802,9 @@ export default function AdminPage() {
                 public booking to Supabase, admin login (OTP), editable services and
                 per-treatment time/price, images, weekly hours, bookings list, weekly
                 calendar with add/hover details, marketing homepage from Supabase,
-                booking emails via Resend once you add the env vars below, and calendar
-                (.ics download plus Google Calendar link on /book and in client emails).
+                booking emails via Resend once you add the env vars below, calendar
+                (.ics / Google add link), and optional automatic sync into your Google
+                Calendar when you configure the Google Calendar API env vars.
               </p>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 When you can — booking email &amp; production (don’t forget)
@@ -859,6 +860,30 @@ export default function AdminPage() {
                     BOOKING_NOTIFY_WEBHOOK_SECRET
                   </code>{" "}
                   — only if bookings might be created outside this website.
+                </li>
+                <li className="pl-1">
+                  Optional:{" "}
+                  <strong className="font-semibold text-[#2a211b]">
+                    Google Calendar API
+                  </strong>{" "}
+                  — enable Calendar API and create a service account in Google Cloud;
+                  share your clinic calendar with the service account email; add{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    GOOGLE_CALENDAR_CLIENT_EMAIL
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    GOOGLE_CALENDAR_PRIVATE_KEY
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    GOOGLE_CALENDAR_CALENDAR_ID
+                  </code>{" "}
+                  in Vercel; run{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    supabase/ensure_google_calendar_sync.sql
+                  </code>
+                  . See <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">supabase/README.md</code>.
                 </li>
               </ul>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
