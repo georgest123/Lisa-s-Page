@@ -45,13 +45,46 @@ async function ensureBookingCalendarColumns(supabase: ServiceSupabase): Promise<
 function formatGoogleSyncError(error: unknown): string {
   const err = error as {
     message?: string;
-    response?: { data?: unknown; status?: number };
+    code?: number;
+    response?: {
+      status?: number;
+      data?: {
+        error?: {
+          message?: string;
+          errors?: Array<{ reason?: string; message?: string }>;
+        };
+      };
+    };
   };
-  const bits = [err.message ?? String(error)];
-  if (err.response?.data !== undefined) {
-    bits.push(JSON.stringify(err.response.data));
+
+  const status = err.response?.status ?? err.code;
+  const reason = err.response?.data?.error?.errors?.[0]?.reason;
+  const apiMessage = err.response?.data?.error?.message;
+
+  if (status === 404 || reason === "notFound") {
+    return (
+      "Calendar not found (404). In Vercel, set GOOGLE_CALENDAR_CALENDAR_ID to the exact " +
+        "Calendar ID from Google Calendar: open the diary you want → Settings → " +
+        "Integrate calendar → Calendar ID (primary calendar = your Gmail address; " +
+        "other calendars often look like xxx@group.calendar.google.com). " +
+        "Share that same calendar with your service account email, Make changes to events."
+    ).slice(0, 500);
   }
-  return bits.filter(Boolean).join(" ").slice(0, 500);
+
+  if (status === 403 || reason === "forbidden") {
+    return (
+      "Permission denied (403). In Google Calendar → Settings for that calendar → " +
+        "Share with specific people → add your …@….iam.gserviceaccount.com with " +
+        "Make changes to events."
+    ).slice(0, 500);
+  }
+
+  const bits = [err.message ?? String(error)];
+  if (apiMessage) bits.push(apiMessage);
+  else if (err.response?.data)
+    bits.push(JSON.stringify(err.response.data).slice(0, 220));
+
+  return bits.filter(Boolean).join(" — ").slice(0, 500);
 }
 
 function shouldRetryHttp(err: unknown): boolean {
