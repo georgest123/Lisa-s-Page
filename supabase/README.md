@@ -24,6 +24,7 @@ This creates:
 - `availability`
 - `booking_settings`
 - `bookings`
+- `policies` (client-facing text; admin-managed)
 
 The public site can read active services and create pending booking requests.
 Admin write access is locked to `lbeauclinique@gmail.com` through Supabase Auth.
@@ -62,6 +63,10 @@ After a booking is created from `/book` or `/admin`, or when status changes in a
 **Optional webhook:** Create the same secret as `BOOKING_NOTIFY_WEBHOOK_SECRET` and add a Supabase **Database Webhook** on `bookings` pointing to `POST https://YOUR_DOMAIN/api/booking-notify` with header `Authorization: Bearer YOUR_SECRET`. Prefer **INSERT only** if you also use **Stripe deposits**, otherwise an UPDATE from Stripe confirmation could trigger a second notification alongside the app’s own send.
 
 See `.env.example` in the repo.
+
+## Policies (homepage)
+
+Run **`supabase/add_policies.sql`** once if `public.policies` is missing. Admins manage rows under **Scheduling studio → Policies**; active policies appear in the **Policies** section on the main site (and in the header nav).
 
 ## Booking deposits (Stripe)
 

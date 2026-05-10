@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { unstable_noStore } from "next/cache";
 import skinRenewalImage from "../../skin-renewal.jpg";
 import { createAnonSupabaseClient } from "@/lib/supabase/anon";
-import type { Availability, Service, Treatment } from "@/lib/supabase/types";
+import type { Availability, Policy, Service, Treatment } from "@/lib/supabase/types";
 
 /** Homepage reads live Supabase data; do not statically freeze treatments at build time. */
 export const dynamic = "force-dynamic";
@@ -140,6 +140,21 @@ async function loadPublicAvailability(): Promise<Availability[]> {
   return data as Availability[];
 }
 
+async function loadPublicPolicies(): Promise<Policy[]> {
+  unstable_noStore();
+  const supabase = createAnonSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("policies")
+    .select("id, title, slug, body, sort_order")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+
+  if (error || !data?.length) return [];
+  return data as Policy[];
+}
+
 async function loadMarketingTiles(): Promise<MarketingTile[]> {
   unstable_noStore();
   const supabase = createAnonSupabaseClient();
@@ -251,9 +266,10 @@ function TreatmentVisual({ visual }: { visual: string }) {
 const CLINIC_PHONE_TEL = "+447717096809";
 
 export default async function Home() {
-  const [tiles, availabilitySlots] = await Promise.all([
+  const [tiles, availabilitySlots, policyItems] = await Promise.all([
     loadMarketingTiles(),
     loadPublicAvailability(),
+    loadPublicPolicies(),
   ]);
 
   return (
@@ -276,6 +292,7 @@ export default async function Home() {
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
           <a href="#treatments">Treatments</a>
           <a href="#about">About</a>
+          <a href="#policies">Policies</a>
           <a href="#contact">Contact</a>
         </div>
         <Link
@@ -567,6 +584,44 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {policyItems.length > 0 ? (
+        <section
+          id="policies"
+          className="mx-auto w-full max-w-7xl px-6 pb-8 pt-12 lg:px-8"
+        >
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#9b7a45]">
+            Policies
+          </p>
+          <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
+            Before you visit
+          </h2>
+          <p className="mt-4 max-w-2xl text-[#776b5f]">
+            Important information about bookings, visits, and how we work with
+            you.
+          </p>
+          <div className="mt-10 grid gap-4">
+            {policyItems.map((policy) => (
+              <details
+                key={policy.id}
+                className="group rounded-[1.6rem] border border-[#dfcfb9]/90 bg-[#fffaf2]/75 px-6 py-4 shadow-sm backdrop-blur-sm open:bg-[#fffaf2]/95"
+              >
+                <summary className="cursor-pointer list-none font-semibold text-[#2a211b] outline-none marker:content-none [&::-webkit-details-marker]:hidden">
+                  <span className="flex items-center justify-between gap-3">
+                    {policy.title}
+                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45] transition group-open:rotate-180">
+                      ▼
+                    </span>
+                  </span>
+                </summary>
+                <div className="mt-4 border-t border-[#dfcfb9]/60 pt-4 text-sm leading-relaxed text-[#5c4f42] whitespace-pre-wrap">
+                  {policy.body}
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section
         id="contact"

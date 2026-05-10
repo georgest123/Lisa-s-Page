@@ -39,6 +39,17 @@ export type Availability = {
   enabled: boolean;
 };
 
+export type Policy = {
+  id: string;
+  title: string;
+  slug: string;
+  body: string;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Booking = {
   id: string;
   client_name: string;

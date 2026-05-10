@@ -14,11 +14,12 @@ import type {
   Booking,
   BookingSettings,
   BookingStatus,
+  Policy,
   Service,
   Treatment,
 } from "@/lib/supabase/types";
 
-type AdminTab = "overview" | "services" | "schedule" | "bookings";
+type AdminTab = "overview" | "services" | "schedule" | "bookings" | "policies";
 type ServiceWithTreatments = Service & { treatments: Treatment[] };
 
 type TreatmentInsertRow = {
@@ -58,6 +59,22 @@ async function insertTreatmentsWithFallback(
   return { error: retry.error };
 }
 
+function slugifyTitle(title: string): string {
+  const s = title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return s || "policy";
+}
+
+function policySlug(title: string, id: string): string {
+  const compact = id.replace(/-/g, "");
+  return `${slugifyTitle(title)}-${compact.slice(0, 10)}`;
+}
+
 const adminEmail = "lbeauclinique@gmail.com";
 
 const defaultSettings: BookingSettings = {
@@ -93,6 +110,7 @@ export default function AdminPage() {
   const [services, setServices] = useState<ServiceWithTreatments[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [settings, setSettings] = useState<BookingSettings>(defaultSettings);
   const [message, setMessage] = useState("");
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
@@ -202,14 +220,21 @@ export default function AdminPage() {
     setLoading(true);
     setMessage("");
 
-    const [servicesResult, treatmentsResult, availabilityResult, bookingsResult, settingsResult] =
-      await Promise.all([
-        supabase.from("services").select("*").order("sort_order"),
-        supabase.from("treatments").select("*").order("sort_order"),
-        supabase.from("availability").select("*").order("day_of_week"),
-        supabase.from("bookings").select("*").order("created_at", { ascending: false }),
-        supabase.from("booking_settings").select("*").single(),
-      ]);
+    const [
+      servicesResult,
+      treatmentsResult,
+      availabilityResult,
+      bookingsResult,
+      settingsResult,
+      policiesResult,
+    ] = await Promise.all([
+      supabase.from("services").select("*").order("sort_order"),
+      supabase.from("treatments").select("*").order("sort_order"),
+      supabase.from("availability").select("*").order("day_of_week"),
+      supabase.from("bookings").select("*").order("created_at", { ascending: false }),
+      supabase.from("booking_settings").select("*").single(),
+      supabase.from("policies").select("*").order("sort_order"),
+    ]);
 
     if (servicesResult.error) setMessage(servicesResult.error.message);
 
@@ -242,7 +267,79 @@ export default function AdminPage() {
           }
         : defaultSettings,
     );
+    if (!policiesResult.error && policiesResult.data) {
+      setPolicies(policiesResult.data as Policy[]);
+    } else {
+      setPolicies([]);
+    }
     setLoading(false);
+  }
+
+  function updatePolicyField<K extends keyof Policy>(
+    id: string,
+    field: K,
+    value: Policy[K],
+  ) {
+    setPolicies((current) =>
+      current.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  async function savePolicy(policy: Policy) {
+    if (!supabase) return;
+    const slug = policySlug(policy.title.trim() || "Policy", policy.id);
+    const { error } = await supabase
+      .from("policies")
+      .update({
+        title: policy.title.trim() || "Untitled",
+        slug,
+        body: policy.body,
+        active: policy.active,
+        sort_order: policy.sort_order,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", policy.id);
+    setMessage(error ? error.message : "Policy saved.");
+    await loadAdminData();
+  }
+
+  async function removePolicy(id: string) {
+    if (!supabase) return;
+    const { error } = await supabase.from("policies").delete().eq("id", id);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setPolicies((current) => current.filter((item) => item.id !== id));
+    setMessage("Policy deleted.");
+  }
+
+  async function addPolicy() {
+    if (!supabase) return;
+    const maxOrder = policies.reduce((max, item) => Math.max(max, item.sort_order), -1);
+    const insertRow = {
+      title: "New policy",
+      slug: `new-policy-${crypto.randomUUID().slice(0, 8)}`,
+      body: "",
+      sort_order: maxOrder + 1,
+      active: true,
+    };
+    const { data, error } = await supabase
+      .from("policies")
+      .insert(insertRow)
+      .select("*")
+      .single();
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    const row = data as Policy;
+    await supabase
+      .from("policies")
+      .update({ slug: policySlug(row.title, row.id) })
+      .eq("id", row.id);
+    setMessage("Policy added — edit title and text, then save.");
+    await loadAdminData();
   }
 
   async function sendLoginCode() {
@@ -795,8 +892,8 @@ export default function AdminPage() {
         </div>
       ) : null}
 
-      <div className="mb-6 grid gap-3 rounded-[1.5rem] bg-[#111820] p-2 text-sm font-semibold text-[#fffaf2] md:grid-cols-4">
-        {(["overview", "services", "schedule", "bookings"] as AdminTab[]).map(
+      <div className="mb-6 grid grid-cols-2 gap-3 rounded-[1.5rem] bg-[#111820] p-2 text-sm font-semibold text-[#fffaf2] sm:grid-cols-3 md:grid-cols-5">
+        {(["overview", "services", "schedule", "bookings", "policies"] as AdminTab[]).map(
           (tab) => (
             <button
               key={tab}
@@ -930,6 +1027,11 @@ export default function AdminPage() {
                   Stripe Checkout for deposits (webhook confirms booking); credits /
                   built-by page linked from the footer.
                 </li>
+                <li className="pl-1">
+                  <strong className="font-semibold text-[#2a211b]">Policies</strong>{" "}
+                  tab: editable client-facing policies (accordion on the homepage when
+                  active).
+                </li>
               </ul>
 
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
@@ -1000,6 +1102,18 @@ export default function AdminPage() {
                   </code>{" "}
                   only if bookings can be created outside this app (prefer INSERT-only
                   if using Stripe deposits — see{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    supabase/README.md
+                  </code>
+                  ).
+                </li>
+                <li className="pl-1">
+                  <strong className="font-semibold text-[#2a211b]">Policies:</strong>{" "}
+                  run{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    supabase/add_policies.sql
+                  </code>{" "}
+                  once if the Policies tab shows a database error (
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     supabase/README.md
                   </code>
@@ -1470,6 +1584,97 @@ export default function AdminPage() {
               ))}
             </div>
           </Panel>
+      ) : null}
+
+      {!loading && activeTab === "policies" ? (
+        <Panel
+          title="Client-facing policies"
+          action={
+            <button
+              type="button"
+              onClick={() => void addPolicy()}
+              className="rounded-full bg-[#111820] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
+            >
+              Add policy
+            </button>
+          }
+        >
+          <p className="mb-5 text-sm text-[#776b5f]">
+            Shown on the main site in the Policies section (above Contact).
+            Inactive policies stay hidden from clients.
+          </p>
+          {policies.length === 0 ? (
+            <p className="mb-5 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm text-[#6f5638]">
+              No policies yet — tap Add policy. If saving fails, run{" "}
+              <code className="rounded bg-[#fffaf2] px-1 text-xs">
+                supabase/add_policies.sql
+              </code>{" "}
+              in the Supabase SQL Editor.
+            </p>
+          ) : null}
+          <div className="grid gap-5">
+            {policies.map((policy) => (
+              <div
+                key={policy.id}
+                className="rounded-[1.4rem] border border-[#dfcfb9]/90 bg-[#fffaf2]/80 p-5"
+              >
+                <AdminInput
+                  label="Title"
+                  value={policy.title}
+                  onChange={(value) => updatePolicyField(policy.id, "title", value)}
+                />
+                <div className="mt-4">
+                  <AdminTextarea
+                    label="Policy text"
+                    value={policy.body}
+                    onChange={(value) => updatePolicyField(policy.id, "body", value)}
+                  />
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <AdminInput
+                    label="Sort order"
+                    type="number"
+                    value={String(policy.sort_order)}
+                    onChange={(value) =>
+                      updatePolicyField(
+                        policy.id,
+                        "sort_order",
+                        Number.parseInt(value, 10) || 0,
+                      )
+                    }
+                  />
+                  <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm font-semibold text-[#2a211b]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-[#dfcfb9]"
+                      checked={policy.active}
+                      onChange={(event) =>
+                        updatePolicyField(policy.id, "active", event.target.checked)
+                      }
+                    />
+                    Visible on website
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void savePolicy(policy)}
+                    className="rounded-full bg-[#b9945b] px-5 py-2.5 text-sm font-semibold text-[#17130f]"
+                  >
+                    Save policy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removePolicy(policy.id)}
+                    className="rounded-full border border-red-300/90 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-900"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
       ) : null}
 
       {addBookingOpen ? (
