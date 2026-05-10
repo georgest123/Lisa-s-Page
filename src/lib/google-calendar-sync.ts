@@ -421,9 +421,33 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
   }
 }
 
+/** Deletes one event from Google Calendar by id (Calendar API). */
+export async function deleteGoogleCalendarEventById(
+  eventId: string,
+): Promise<void> {
+  if (!isGoogleCalendarSyncConfigured()) return;
+
+  const calendarApi = createJwtCalendarClient();
+  if (!calendarApi) return;
+
+  const calendarId = process.env.GOOGLE_CALENDAR_CALENDAR_ID!.trim();
+
+  try {
+    await calendarApi.events.delete({
+      calendarId,
+      eventId,
+    });
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code !== 404) {
+      console.error("deleteGoogleCalendarEventById", eventId, err);
+    }
+  }
+}
+
 /**
  * Removes the Google Calendar event for this booking if one exists.
- * Call before deleting the row from Supabase.
+ * Uses service role to read `google_calendar_event_id` (webhooks / server-only callers).
  */
 export async function deleteGoogleCalendarEventForBooking(
   bookingId: string,
@@ -434,11 +458,6 @@ export async function deleteGoogleCalendarEventForBooking(
     const supabase = createServiceRoleClient();
     if (!supabase) return;
 
-    const calendarApi = createJwtCalendarClient();
-    if (!calendarApi) return;
-
-    const calendarId = process.env.GOOGLE_CALENDAR_CALENDAR_ID!.trim();
-
     const { data: row } = await supabase
       .from("bookings")
       .select("google_calendar_event_id")
@@ -448,17 +467,7 @@ export async function deleteGoogleCalendarEventForBooking(
     const eventId = row?.google_calendar_event_id as string | null | undefined;
     if (!eventId) return;
 
-    try {
-      await calendarApi.events.delete({
-        calendarId,
-        eventId,
-      });
-    } catch (err: unknown) {
-      const code = (err as { code?: number }).code;
-      if (code !== 404) {
-        console.error("deleteGoogleCalendarEventForBooking API", bookingId, err);
-      }
-    }
+    await deleteGoogleCalendarEventById(eventId);
   } catch (error) {
     console.error("deleteGoogleCalendarEventForBooking", bookingId, error);
   }

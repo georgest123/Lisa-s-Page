@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { deleteBookingPermanently } from "@/app/actions/delete-booking";
+import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
@@ -552,6 +552,10 @@ export default function AdminPage() {
   }
 
   async function removeBooking(booking: Booking) {
+    if (!supabase) {
+      setMessage("Not connected to Supabase.");
+      return;
+    }
     if (
       !window.confirm(
         `Permanently delete this booking for ${booking.client_name} on ${booking.requested_date} at ${booking.requested_time.slice(0, 5)}? This cannot be undone.`,
@@ -560,14 +564,21 @@ export default function AdminPage() {
       return;
     }
     setDeletingBookingId(booking.id);
-    const result = await deleteBookingPermanently(booking.id);
-    setDeletingBookingId(null);
-    if (!result.ok) {
-      setMessage(result.error ?? "Could not delete booking.");
-      return;
+    try {
+      await removeGoogleCalendarEventIfLinked(booking.google_calendar_event_id);
+      const { error } = await supabase
+        .from("bookings")
+        .delete()
+        .eq("id", booking.id);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setBookings((current) => current.filter((item) => item.id !== booking.id));
+      setMessage("Booking deleted.");
+    } finally {
+      setDeletingBookingId(null);
     }
-    setBookings((current) => current.filter((item) => item.id !== booking.id));
-    setMessage("Booking deleted.");
   }
 
   async function updateBookingStatus(id: string, status: BookingStatus) {

@@ -1,22 +1,15 @@
 "use server";
 
-import { deleteGoogleCalendarEventForBooking } from "@/lib/google-calendar-sync";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { deleteGoogleCalendarEventById } from "@/lib/google-calendar-sync";
 
-export async function deleteBookingPermanently(
-  bookingId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const supabase = createServiceRoleClient();
-  if (!supabase) {
-    return { ok: false, error: "Server configuration error" };
-  }
-
-  await deleteGoogleCalendarEventForBooking(bookingId);
-
-  const { error } = await supabase.from("bookings").delete().eq("id", bookingId);
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true };
+/**
+ * Removes the linked Google Calendar event using the id already on the booking row.
+ * Database delete is done in the admin UI with the authenticated Supabase client (RLS),
+ * so this server action does not require SUPABASE_SERVICE_ROLE_KEY.
+ */
+export async function removeGoogleCalendarEventIfLinked(
+  calendarEventId: string | null | undefined,
+): Promise<void> {
+  if (!calendarEventId) return;
+  await deleteGoogleCalendarEventById(calendarEventId);
 }
