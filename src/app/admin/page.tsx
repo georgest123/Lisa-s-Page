@@ -95,6 +95,7 @@ export default function AdminPage() {
   const [addBookingOpen, setAddBookingOpen] = useState(false);
   const [addBookingSaving, setAddBookingSaving] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
+  const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
   const [addBookingForm, setAddBookingForm] = useState({
     date: "",
     time: "09:30",
@@ -147,6 +148,15 @@ export default function AdminPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [addBookingOpen]);
+
+  useEffect(() => {
+    if (!bookingToDelete) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setBookingToDelete(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bookingToDelete]);
 
   const activeServices = services.filter((service) => service.active).length;
   const pendingBookings = bookings.filter(
@@ -551,21 +561,15 @@ export default function AdminPage() {
     await loadAdminData();
   }
 
-  async function removeBooking(booking: Booking) {
-    if (!supabase) {
-      setMessage("Not connected to Supabase.");
+  async function confirmBookingDelete() {
+    const booking = bookingToDelete;
+    if (!booking || !supabase) {
+      setBookingToDelete(null);
       return;
     }
-    if (
-      !window.confirm(
-        `Permanently delete this booking for ${booking.client_name} on ${booking.requested_date} at ${booking.requested_time.slice(0, 5)}? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    const calendarEventId = booking.google_calendar_event_id;
     setDeletingBookingId(booking.id);
     try {
-      await removeGoogleCalendarEventIfLinked(booking.google_calendar_event_id);
       const { error } = await supabase
         .from("bookings")
         .delete()
@@ -576,6 +580,13 @@ export default function AdminPage() {
       }
       setBookings((current) => current.filter((item) => item.id !== booking.id));
       setMessage("Booking deleted.");
+      setBookingToDelete(null);
+      void removeGoogleCalendarEventIfLinked(calendarEventId);
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err instanceof Error ? err.message : "Could not delete booking.",
+      );
     } finally {
       setDeletingBookingId(null);
     }
@@ -1304,8 +1315,10 @@ export default function AdminPage() {
                   </select>
                   <button
                     type="button"
-                    onClick={() => void removeBooking(booking)}
-                    disabled={deletingBookingId === booking.id}
+                    onClick={() => setBookingToDelete(booking)}
+                    disabled={
+                      deletingBookingId === booking.id || bookingToDelete !== null
+                    }
                     className="rounded-full border border-red-300/90 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition hover:bg-red-100 disabled:opacity-60"
                   >
                     {deletingBookingId === booking.id ? "Deleting…" : "Delete"}
@@ -1494,6 +1507,57 @@ export default function AdminPage() {
                 className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2] disabled:opacity-50"
               >
                 {addBookingSaving ? "Saving…" : "Save booking"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {bookingToDelete ? (
+        <div
+          className="fixed inset-0 z-[210] flex items-center justify-center bg-[#17130f]/55 p-4 backdrop-blur-[2px]"
+          onClick={() => setBookingToDelete(null)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-booking-title"
+            className="w-full max-w-md rounded-[1.6rem] border border-[#dfcfb9] bg-[#fffaf2] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              id="delete-booking-title"
+              className="text-xl font-semibold tracking-[-0.03em] text-[#2a211b]"
+            >
+              Delete this booking?
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-[#776b5f]">
+              This permanently removes{" "}
+              <span className="font-semibold text-[#2a211b]">
+                {bookingToDelete.client_name}
+              </span>{" "}
+              on {bookingToDelete.requested_date} at{" "}
+              {String(bookingToDelete.requested_time ?? "").slice(0, 5)}. This
+              cannot be undone.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setBookingToDelete(null)}
+                className="rounded-full border border-[#dfcfb9] px-5 py-3 text-sm font-semibold text-[#6f5638]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingBookingId === bookingToDelete.id}
+                onClick={() => void confirmBookingDelete()}
+                className="rounded-full bg-red-800 px-5 py-3 text-sm font-semibold text-[#fffaf2] disabled:opacity-50"
+              >
+                {deletingBookingId === bookingToDelete.id
+                  ? "Deleting…"
+                  : "Delete permanently"}
               </button>
             </div>
           </div>
