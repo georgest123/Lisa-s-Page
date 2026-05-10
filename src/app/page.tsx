@@ -645,10 +645,20 @@ export default async function Home() {
             </dl>
           </div>
         </div>
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-relaxed text-[#776b5f]/85">
+            This website and integrated scheduling studio was created by{" "}
+            <Link
+              href="/credits"
+              className="font-medium text-[#6f5638] underline underline-offset-[3px] decoration-[#b9945b]/80 transition hover:text-[#2a211b] hover:decoration-[#8b765d]"
+            >
+              George Staicu
+            </Link>
+            .
+          </p>
           <Link
             href="/admin"
-            className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638]"
+            className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638] sm:text-right"
           >
             Scheduling studio
           </Link>
