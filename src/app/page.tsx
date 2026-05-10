@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { unstable_noStore } from "next/cache";
 import skinRenewalImage from "../../skin-renewal.jpg";
 import { createAnonSupabaseClient } from "@/lib/supabase/anon";
-import type { Service, Treatment } from "@/lib/supabase/types";
+import type { Availability, Service, Treatment } from "@/lib/supabase/types";
 
 /** Homepage reads live Supabase data; do not statically freeze treatments at build time. */
 export const dynamic = "force-dynamic";
@@ -114,6 +114,30 @@ async function fetchAllActiveTreatments(
     from += pageSize;
   }
   return accumulated;
+}
+
+const SHORT_DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function formatAvailabilityLine(slot: Availability): string {
+  if (!slot.enabled) return "Closed";
+  const open = slot.opens_at?.trim();
+  const close = slot.closes_at?.trim();
+  if (!open || !close) return "Closed";
+  return `${open.slice(0, 5)} – ${close.slice(0, 5)}`;
+}
+
+async function loadPublicAvailability(): Promise<Availability[]> {
+  unstable_noStore();
+  const supabase = createAnonSupabaseClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("availability")
+    .select("*")
+    .order("day_of_week", { ascending: true });
+
+  if (error || !data?.length) return [];
+  return data as Availability[];
 }
 
 async function loadMarketingTiles(): Promise<MarketingTile[]> {
@@ -227,7 +251,10 @@ function TreatmentVisual({ visual }: { visual: string }) {
 const CLINIC_PHONE_TEL = "+447717096809";
 
 export default async function Home() {
-  const tiles = await loadMarketingTiles();
+  const [tiles, availabilitySlots] = await Promise.all([
+    loadMarketingTiles(),
+    loadPublicAvailability(),
+  ]);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f6f0e7] text-[#2a211b]">
@@ -582,22 +609,39 @@ export default async function Home() {
               2 Turpyn Court, Woughton on the Green, Milton Keynes MK6 3BW
             </p>
             <dl className="mt-8 grid gap-3 text-sm text-[#e8ddcf]">
-              <div className="flex justify-between gap-6">
-                <dt>Mon</dt>
-                <dd>09:30 - 19:00</dd>
-              </div>
-              <div className="flex justify-between gap-6">
-                <dt>Tue-Fri</dt>
-                <dd>09:30 - late</dd>
-              </div>
-              <div className="flex justify-between gap-6">
-                <dt>Saturday</dt>
-                <dd>09:00 - 17:00</dd>
-              </div>
-              <div className="flex justify-between gap-6">
-                <dt>Sunday</dt>
-                <dd>Closed</dd>
-              </div>
+              {availabilitySlots.length > 0 ? (
+                availabilitySlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    className="flex justify-between gap-6"
+                  >
+                    <dt>
+                      {SHORT_DAY_LABELS[slot.day_of_week] ??
+                        `Day ${slot.day_of_week}`}
+                    </dt>
+                    <dd className="text-right">{formatAvailabilityLine(slot)}</dd>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex justify-between gap-6">
+                    <dt>Mon</dt>
+                    <dd>09:30 - 19:00</dd>
+                  </div>
+                  <div className="flex justify-between gap-6">
+                    <dt>Tue-Fri</dt>
+                    <dd>09:30 - late</dd>
+                  </div>
+                  <div className="flex justify-between gap-6">
+                    <dt>Saturday</dt>
+                    <dd>09:00 - 17:00</dd>
+                  </div>
+                  <div className="flex justify-between gap-6">
+                    <dt>Sunday</dt>
+                    <dd>Closed</dd>
+                  </div>
+                </>
+              )}
             </dl>
           </div>
         </div>
