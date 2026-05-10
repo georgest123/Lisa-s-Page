@@ -1,4 +1,4 @@
--- Run in Supabase SQL Editor if policies table is missing (idempotent).
+/* Run this entire file in the Supabase SQL Editor. Safe to re-run. */
 
 create table if not exists public.policies (
   id uuid primary key default gen_random_uuid(),
