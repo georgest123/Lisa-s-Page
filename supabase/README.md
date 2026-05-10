@@ -76,6 +76,8 @@ Optional: require a **card deposit** before a public booking is confirmed.
 
 **Local testing:** install [Stripe CLI](https://stripe.com/docs/stripe-cli), run `stripe listen --forward-to localhost:3000/api/stripe/webhook`, and use the printed `whsec_...` as `STRIPE_WEBHOOK_SECRET` in `.env.local`.
 
+**Stripe payment receipts (to the client):** Checkout now sets `receipt_email` on the payment. You must also turn on Stripe’s emails in the Dashboard: **Settings → Emails → Customer emails** — enable emails for **Successful payments** (repeat for **Test mode** and **Live mode** if you use both). Check spam; the sender is Stripe, not your clinic domain unless you customise it.
+
 ## Clinic Google Calendar (API sync)
 
 Optional: each booking can **create or update an event** on your Google Calendar via a **Google Cloud service account**. Public bookings and admin changes call the Calendar API (same time window as the ICS download).

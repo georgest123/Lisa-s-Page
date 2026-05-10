@@ -224,6 +224,9 @@ function TreatmentVisual({ visual }: { visual: string }) {
   );
 }
 
+const CLINIC_PHONE_TEL = "+441908587833";
+const CLINIC_PHONE_DISPLAY = "01908 587833";
+
 export default async function Home() {
   const tiles = await loadMarketingTiles();
 
@@ -553,13 +556,19 @@ export default async function Home() {
             <h2 className="relative mt-4 max-w-2xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
               Ready for your sculpt, strength and glow plan?
             </h2>
-            <div className="relative mt-8 flex flex-col gap-4 sm:flex-row">
+            <div className="relative mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
               <Link
                 href="/book"
                 className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2] shadow-lg shadow-[#111820]/10"
               >
                 Book online
               </Link>
+              <a
+                href={`tel:${CLINIC_PHONE_TEL}`}
+                className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"
+              >
+                Call the clinic · {CLINIC_PHONE_DISPLAY}
+              </a>
               <a
                 href="mailto:lbeauclinique@gmail.com"
                 className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"
