@@ -224,8 +224,7 @@ function TreatmentVisual({ visual }: { visual: string }) {
   );
 }
 
-const CLINIC_PHONE_TEL = "+441908587833";
-const CLINIC_PHONE_DISPLAY = "01908 587833";
+const CLINIC_PHONE_TEL = "+447717096809";
 
 export default async function Home() {
   const tiles = await loadMarketingTiles();
@@ -567,7 +566,7 @@ export default async function Home() {
                 href={`tel:${CLINIC_PHONE_TEL}`}
                 className="rounded-full border border-[#d8c5a9] bg-[#fffaf2]/55 px-7 py-4 text-center font-semibold text-[#6f5638] backdrop-blur-sm"
               >
-                Call the clinic · {CLINIC_PHONE_DISPLAY}
+                Call the clinic
               </a>
               <a
                 href="mailto:lbeauclinique@gmail.com"
