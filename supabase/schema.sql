@@ -74,6 +74,18 @@ alter table public.bookings add column if not exists google_calendar_sync_error 
 alter table public.bookings add column if not exists google_calendar_sync_attempted_at timestamptz;
 alter table public.bookings add column if not exists google_calendar_last_success_at timestamptz;
 
+alter table public.booking_settings add column if not exists deposit_enabled boolean not null default false;
+alter table public.booking_settings add column if not exists deposit_amount_cents integer not null default 0;
+
+alter table public.bookings add column if not exists deposit_cents integer;
+alter table public.bookings add column if not exists stripe_checkout_session_id text;
+alter table public.bookings add column if not exists stripe_payment_intent_id text;
+
+alter table public.bookings drop constraint if exists bookings_status_check;
+alter table public.bookings add constraint bookings_status_check check (
+  status in ('pending', 'pending_payment', 'confirmed', 'completed', 'cancelled')
+);
+
 with ranked_services as (
   select
     id,
@@ -232,7 +244,7 @@ create policy "Admin can manage booking settings"
 drop policy if exists "Anyone can create booking requests" on public.bookings;
 create policy "Anyone can create booking requests"
   on public.bookings for insert
-  with check (status in ('pending', 'confirmed'));
+  with check (status in ('pending', 'confirmed', 'pending_payment'));
 
 drop policy if exists "Admin can manage bookings" on public.bookings;
 create policy "Admin can manage bookings"

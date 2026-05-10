@@ -59,9 +59,22 @@ Set these **server-only** variables (e.g. Vercel project settings):
 
 After a booking is created from `/book` or `/admin`, or when status changes in admin, the app sends **two** emails: one to the client and one to the clinic (if `RESEND_API_KEY` is missing, sends are skipped with no error to the user).
 
-**Optional webhook:** Create the same secret as `BOOKING_NOTIFY_WEBHOOK_SECRET` and add a Supabase **Database Webhook** on `bookings` pointing to `POST https://YOUR_DOMAIN/api/booking-notify` with header `Authorization: Bearer YOUR_SECRET`. Only needed for bookings inserted outside the Next.js app (otherwise server actions already notify).
+**Optional webhook:** Create the same secret as `BOOKING_NOTIFY_WEBHOOK_SECRET` and add a Supabase **Database Webhook** on `bookings` pointing to `POST https://YOUR_DOMAIN/api/booking-notify` with header `Authorization: Bearer YOUR_SECRET`. Prefer **INSERT only** if you also use **Stripe deposits**, otherwise an UPDATE from Stripe confirmation could trigger a second notification alongside the app’s own send.
 
 See `.env.example` in the repo.
+
+## Booking deposits (Stripe)
+
+Optional: require a **card deposit** before a public booking is confirmed.
+
+1. Run **`supabase/add_stripe_deposits.sql`** in the Supabase SQL Editor (adds columns, `pending_payment` status, and RLS for inserts).
+2. In [Stripe Dashboard](https://dashboard.stripe.com): get **Secret key** (`STRIPE_SECRET_KEY`) and create a **Webhook** endpoint:  
+   `https://YOUR_PRODUCTION_DOMAIN/api/stripe/webhook`  
+   Select event **`checkout.session.completed`**, then copy the **Signing secret** as `STRIPE_WEBHOOK_SECRET` in Vercel.
+3. In **Scheduling studio → Booking rules**: enable **Require Stripe deposit** and set **Deposit amount (GBP)**. Redeploy so `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are available.
+4. Public flow: client fills `/book` → row is `pending_payment` → redirect to **Stripe Checkout** → on success the webhook sets **confirmed** (or **pending** if you switch to request mode) and sends the usual emails and Google Calendar sync.
+
+**Local testing:** install [Stripe CLI](https://stripe.com/docs/stripe-cli), run `stripe listen --forward-to localhost:3000/api/stripe/webhook`, and use the printed `whsec_...` as `STRIPE_WEBHOOK_SECRET` in `.env.local`.
 
 ## Clinic Google Calendar (API sync)
 

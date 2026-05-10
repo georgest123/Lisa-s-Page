@@ -370,6 +370,10 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
     }
 
     const { booking } = details;
+    if (booking.status === "pending_payment") {
+      return;
+    }
+
     const googleEventId = booking.google_calendar_event_id ?? null;
 
     const artifacts = buildCalendarArtifactsFromBooking(
