@@ -5,6 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
+import {
+  bookingOccupiedRange,
+  minutesFromTimeString,
+  newBookingOverlapsExisting,
+  rangesOverlap,
+  type ServiceWithTreatments,
+} from "@/lib/booking-slot-overlap";
 import type {
   Availability,
   Booking,
@@ -13,15 +20,17 @@ import type {
   Treatment,
 } from "@/lib/supabase/types";
 
-type ServiceWithTreatments = Service & { treatments: Treatment[] };
-
 const defaultSettings: Pick<
   BookingSettings,
-  "slot_interval_minutes" | "minimum_notice_hours" | "booking_mode"
+  | "slot_interval_minutes"
+  | "minimum_notice_hours"
+  | "booking_mode"
+  | "buffer_minutes"
 > = {
   slot_interval_minutes: 15,
   minimum_notice_hours: 24,
   booking_mode: "instant",
+  buffer_minutes: 10,
 };
 
 function formatDate(date: Date) {
@@ -34,11 +43,6 @@ function displayDate(date: string) {
     day: "numeric",
     month: "short",
   }).format(new Date(`${date}T12:00:00`));
-}
-
-function minutesFromTime(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
 }
 
 function timeFromMinutes(totalMinutes: number) {
@@ -161,26 +165,34 @@ export default function BookPage() {
     const minBookTime = new Date(
       now.getTime() + settings.minimum_notice_hours * 60 * 60 * 1000,
     );
-    const start = minutesFromTime(slot.opens_at);
-    const end =
-      minutesFromTime(slot.closes_at) - bookingDurationMinutes;
+    const bufferMinutes = settings.buffer_minutes ?? 10;
+    const openMin = minutesFromTimeString(slot.opens_at);
+    const closeMin = minutesFromTimeString(slot.closes_at);
+    const lastStartMin =
+      closeMin - bookingDurationMinutes - bufferMinutes;
 
-    const existing = new Set(
-      bookings
-        .filter((booking) => booking.requested_date === effectiveSelectedDate)
-        .map((booking) => booking.requested_time.slice(0, 5)),
-    );
+    const occupied = bookings
+      .filter((booking) => booking.requested_date === effectiveSelectedDate)
+      .map((booking) =>
+        bookingOccupiedRange(booking, services, bufferMinutes),
+      );
 
     const slots: string[] = [];
     for (
-      let minutes = start;
-      minutes <= end;
+      let minutes = openMin;
+      minutes <= lastStartMin;
       minutes += settings.slot_interval_minutes
     ) {
       const time = timeFromMinutes(minutes);
       const slotDate = new Date(`${effectiveSelectedDate}T${time}:00`);
       if (slotDate < minBookTime) continue;
-      if (existing.has(time)) continue;
+
+      const candEnd = minutes + bookingDurationMinutes + bufferMinutes;
+      const conflicts = occupied.some((occ) =>
+        rangesOverlap(minutes, candEnd, occ.start, occ.end),
+      );
+      if (conflicts) continue;
+
       slots.push(time);
     }
 
@@ -190,6 +202,7 @@ export default function BookPage() {
     bookings,
     effectiveSelectedDate,
     bookingDurationMinutes,
+    services,
     settings,
   ]);
 
@@ -219,6 +232,27 @@ export default function BookPage() {
       return;
     }
 
+    const bufferMinutes = settings.buffer_minutes ?? 10;
+    const timeForCheck =
+      effectiveSelectedTime.length === 5
+        ? effectiveSelectedTime
+        : effectiveSelectedTime.slice(0, 5);
+    if (
+      newBookingOverlapsExisting(
+        effectiveSelectedDate,
+        timeForCheck,
+        bookingDurationMinutes,
+        bufferMinutes,
+        bookings,
+        services,
+      )
+    ) {
+      setMessage(
+        "That time overlaps another appointment (including buffer time). Please choose a different slot.",
+      );
+      return;
+    }
+
     const bookingId = crypto.randomUUID();
     const { error } = await supabase.from("bookings").insert({
       id: bookingId,
@@ -236,6 +270,14 @@ export default function BookPage() {
     if (error) {
       setMessage(error.message);
       return;
+    }
+
+    const { data: refreshedBookings } = await supabase
+      .from("bookings")
+      .select("*")
+      .neq("status", "cancelled");
+    if (refreshedBookings) {
+      setBookings(refreshedBookings as Booking[]);
     }
 
     await requestGoogleCalendarSync(bookingId);

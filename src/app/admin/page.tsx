@@ -7,6 +7,7 @@ import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { newBookingOverlapsExisting } from "@/lib/booking-slot-overlap";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -650,6 +651,36 @@ export default function AdminPage() {
     const rawTime = addBookingForm.time.trim();
     const timeNorm =
       rawTime.length === 5 ? `${rawTime}:00` : rawTime.length >= 8 ? rawTime : `${rawTime}:00`;
+
+    const svc = services.find((item) => item.id === addBookingForm.serviceId);
+    const tr = svc?.treatments.find((t) => t.id === addBookingForm.treatmentId);
+    const durationMinutes =
+      tr?.duration_minutes != null && tr.duration_minutes > 0
+        ? tr.duration_minutes
+        : svc != null && svc.duration_minutes > 0
+          ? svc.duration_minutes
+          : 45;
+
+    const bufferMinutes = settings.buffer_minutes ?? 10;
+    const timeCheck =
+      rawTime.length >= 5 ? rawTime.slice(0, 5) : timeNorm.slice(0, 5);
+
+    if (
+      newBookingOverlapsExisting(
+        addBookingForm.date,
+        timeCheck,
+        durationMinutes,
+        bufferMinutes,
+        bookings,
+        services,
+      )
+    ) {
+      setMessage(
+        "That time overlaps another booking (including buffer time). Choose another slot.",
+      );
+      return;
+    }
+
     setAddBookingSaving(true);
     setMessage("");
     const bookingId = crypto.randomUUID();
