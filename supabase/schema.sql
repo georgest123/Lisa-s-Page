@@ -69,6 +69,11 @@ alter table public.booking_settings add column if not exists booking_mode text n
 alter table public.booking_settings add column if not exists notification_email text not null default 'lbeauclinique@gmail.com';
 alter table public.booking_settings add column if not exists admin_email text not null default 'lbeauclinique@gmail.com';
 
+alter table public.bookings add column if not exists google_calendar_event_id text;
+alter table public.bookings add column if not exists google_calendar_sync_error text;
+alter table public.bookings add column if not exists google_calendar_sync_attempted_at timestamptz;
+alter table public.bookings add column if not exists google_calendar_last_success_at timestamptz;
+
 with ranked_services as (
   select
     id,
@@ -340,3 +345,23 @@ on conflict (id) do update set
   booking_mode = 'instant',
   notification_email = 'lbeauclinique@gmail.com',
   admin_email = 'lbeauclinique@gmail.com';
+
+create or replace function public.ensure_booking_calendar_columns()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  execute 'alter table public.bookings add column if not exists google_calendar_event_id text';
+  execute 'alter table public.bookings add column if not exists google_calendar_sync_error text';
+  execute 'alter table public.bookings add column if not exists google_calendar_sync_attempted_at timestamptz';
+  execute 'alter table public.bookings add column if not exists google_calendar_last_success_at timestamptz';
+  return json_build_object('ok', true);
+exception when others then
+  return json_build_object('ok', false, 'error', sqlerrm);
+end;
+$$;
+
+revoke all on function public.ensure_booking_calendar_columns() from public;
+grant execute on function public.ensure_booking_calendar_columns() to service_role;
