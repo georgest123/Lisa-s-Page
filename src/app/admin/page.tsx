@@ -66,6 +66,8 @@ const defaultSettings: BookingSettings = {
   buffer_minutes: 10,
   minimum_notice_hours: 24,
   deposit_rule: "Optional later",
+  deposit_enabled: false,
+  deposit_amount_cents: 0,
   booking_mode: "instant",
   notification_email: adminEmail,
   admin_email: adminEmail,
@@ -164,6 +166,9 @@ export default function AdminPage() {
   const pendingBookings = bookings.filter(
     (booking) => booking.status === "pending",
   ).length;
+  const awaitingDepositBookings = bookings.filter(
+    (booking) => booking.status === "pending_payment",
+  ).length;
 
   const weekDates = useMemo(() => {
     const monday = startOfMonday(new Date());
@@ -226,7 +231,17 @@ export default function AdminPage() {
     );
     setAvailability((availabilityResult.data ?? []) as Availability[]);
     setBookings((bookingsResult.data ?? []) as Booking[]);
-    setSettings((settingsResult.data as BookingSettings | null) ?? defaultSettings);
+    const loadedSettings = settingsResult.data as BookingSettings | null;
+    setSettings(
+      loadedSettings
+        ? {
+            ...defaultSettings,
+            ...loadedSettings,
+            deposit_enabled: loadedSettings.deposit_enabled ?? false,
+            deposit_amount_cents: loadedSettings.deposit_amount_cents ?? 0,
+          }
+        : defaultSettings,
+    );
     setLoading(false);
   }
 
@@ -845,9 +860,9 @@ export default function AdminPage() {
               {formatWeekRangeLabel(weekDates)}
             </p>
             <p className="mb-4 text-sm text-[#776b5f]">
-              Blocks use each service duration. Status colours: confirmed, pending,
-              completed, cancelled. Click an empty area in a day column to add a
-              booking at that time.
+              Blocks use each service duration. Status colours: confirmed,
+              pending, awaiting deposit (pending_payment), completed, cancelled.
+              Click an empty area in a day column to add a booking at that time.
             </p>
             {bookingsThisWeek.length === 0 ? (
               <p className="mb-4 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm font-medium text-[#6f5638]">
@@ -870,6 +885,10 @@ export default function AdminPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               <MetricCard label="Active services" value={activeServices} />
               <MetricCard label="Pending requests" value={pendingBookings} />
+              <MetricCard
+                label="Awaiting deposit"
+                value={awaitingDepositBookings}
+              />
               <MetricCard label="Open days" value={availability.filter((slot) => slot.enabled).length} />
               <MetricCard label="Booking mode" value="Instant" />
             </div>
@@ -1290,6 +1309,45 @@ export default function AdminPage() {
                   }))
                 }
               />
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#dfcfb9]/80 bg-[#fffaf2]/60 px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={settings.deposit_enabled}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      deposit_enabled: event.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-sm leading-snug">
+                  <span className="font-semibold text-[#2a211b]">
+                    Require Stripe deposit
+                  </span>
+                  <span className="block text-[#776b5f]">
+                    Clients pay a deposit on Stripe before the booking is
+                    confirmed (set env keys in Vercel — see repo README).
+                  </span>
+                </span>
+              </label>
+              <AdminInput
+                label="Deposit amount (GBP)"
+                type="number"
+                value={
+                  settings.deposit_amount_cents > 0
+                    ? String(settings.deposit_amount_cents / 100)
+                    : ""
+                }
+                onChange={(value) => {
+                  const n = parseFloat(value);
+                  setSettings((current) => ({
+                    ...current,
+                    deposit_amount_cents:
+                      Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : 0,
+                  }));
+                }}
+              />
               <AdminInput
                 label="Notification email"
                 value={settings.notification_email}
@@ -1346,6 +1404,7 @@ export default function AdminPage() {
                         className="min-w-[10rem] rounded-full border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-2 text-sm font-semibold text-[#2a211b]"
                       >
                         <option value="pending">Pending</option>
+                        <option value="pending_payment">Awaiting deposit</option>
                         <option value="confirmed">Confirmed</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
@@ -1521,6 +1580,7 @@ export default function AdminPage() {
                 >
                   <option value="confirmed">Confirmed</option>
                   <option value="pending">Pending</option>
+                  <option value="pending_payment">Awaiting deposit</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
@@ -1675,6 +1735,8 @@ function bookingStatusClasses(status: BookingStatus): string {
       return "border-[#111820] bg-[#111820] text-[#fffaf2]";
     case "pending":
       return "border-amber-400 bg-amber-50 text-amber-950";
+    case "pending_payment":
+      return "border-rose-400 bg-rose-50 text-rose-950";
     case "completed":
       return "border-emerald-400 bg-emerald-50 text-emerald-950";
     case "cancelled":
@@ -1749,8 +1811,16 @@ function BookingHoverCard({
         </p>
         <p>
           <span className="text-[#9b7a45]">Status </span>
-          <span className="capitalize">{booking.status}</span>
+          <span className="capitalize">
+            {booking.status.replace(/_/g, " ")}
+          </span>
         </p>
+        {booking.deposit_cents != null && booking.deposit_cents > 0 ? (
+          <p>
+            <span className="text-[#9b7a45]">Deposit </span>
+            £{(booking.deposit_cents / 100).toFixed(2)}
+          </p>
+        ) : null}
         {booking.notes ? (
           <p className="whitespace-pre-wrap">
             <span className="text-[#9b7a45]">Notes </span>

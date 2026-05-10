@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
@@ -20,18 +21,31 @@ import type {
   Treatment,
 } from "@/lib/supabase/types";
 
-const defaultSettings: Pick<
+type BookPageSettings = Pick<
   BookingSettings,
   | "slot_interval_minutes"
   | "minimum_notice_hours"
   | "booking_mode"
   | "buffer_minutes"
-> = {
+  | "deposit_enabled"
+  | "deposit_amount_cents"
+>;
+
+const defaultSettings: BookPageSettings = {
   slot_interval_minutes: 15,
   minimum_notice_hours: 24,
   booking_mode: "instant",
   buffer_minutes: 10,
+  deposit_enabled: false,
+  deposit_amount_cents: 0,
 };
+
+function formatGBPFromMinorUnits(cents: number) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+  }).format(cents / 100);
+}
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -51,7 +65,10 @@ function timeFromMinutes(totalMinutes: number) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-export default function BookPage() {
+function BookPageContent() {
+  const searchParams = useSearchParams();
+  const cancelledDeposit = searchParams.get("cancelled") === "deposit";
+
   const [services, setServices] = useState<ServiceWithTreatments[]>([]);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -109,7 +126,15 @@ export default function BookPage() {
       setServices(loadedServices);
       setAvailability((availabilityResult.data ?? []) as Availability[]);
       setBookings((bookingsResult.data ?? []) as Booking[]);
-      if (settingsResult.data) setSettings(settingsResult.data as BookingSettings);
+      if (settingsResult.data) {
+        const raw = settingsResult.data as BookingSettings;
+        setSettings({
+          ...defaultSettings,
+          ...raw,
+          deposit_enabled: raw.deposit_enabled ?? false,
+          deposit_amount_cents: raw.deposit_amount_cents ?? 0,
+        });
+      }
       setSelectedServiceId(loadedServices[0]?.id ?? "");
       setSelectedTreatmentId(loadedServices[0]?.treatments[0]?.id ?? "");
       setLoading(false);
@@ -253,7 +278,17 @@ export default function BookPage() {
       return;
     }
 
+    const depositRequired =
+      Boolean(settings.deposit_enabled) &&
+      (settings.deposit_amount_cents ?? 0) > 0;
+
     const bookingId = crypto.randomUUID();
+    const initialStatus = depositRequired
+      ? "pending_payment"
+      : settings.booking_mode === "instant"
+        ? "confirmed"
+        : "pending";
+
     const { error } = await supabase.from("bookings").insert({
       id: bookingId,
       client_name: clientName,
@@ -264,11 +299,36 @@ export default function BookPage() {
       requested_date: effectiveSelectedDate,
       requested_time: effectiveSelectedTime,
       notes: notes || null,
-      status: settings.booking_mode === "instant" ? "confirmed" : "pending",
+      status: initialStatus,
     });
 
     if (error) {
       setMessage(error.message);
+      return;
+    }
+
+    if (depositRequired) {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        await supabase.from("bookings").delete().eq("id", bookingId);
+        setMessage(
+          data.error ??
+            "Could not start secure checkout. Check Stripe keys in Vercel or try again later.",
+        );
+        const { data: refreshedAfterFail } = await supabase
+          .from("bookings")
+          .select("*")
+          .neq("status", "cancelled");
+        if (refreshedAfterFail)
+          setBookings(refreshedAfterFail as Booking[]);
+        return;
+      }
+      window.location.assign(data.url);
       return;
     }
 
@@ -318,6 +378,26 @@ export default function BookPage() {
             Select a service, pick an available slot, and your appointment will
             be saved into the scheduling studio.
           </p>
+
+          {!loading &&
+          settings.deposit_enabled &&
+          (settings.deposit_amount_cents ?? 0) > 0 ? (
+            <p className="mt-4 rounded-2xl border border-[#e8c9a8]/90 bg-[#fffaf2]/90 px-5 py-4 text-sm font-medium text-[#5c4f42]">
+              A deposit of{" "}
+              <span className="font-semibold text-[#2a211b]">
+                {formatGBPFromMinorUnits(settings.deposit_amount_cents)}
+              </span>{" "}
+              is required to confirm your booking. You will complete payment on
+              Stripe&apos;s secure checkout before the appointment is final.
+            </p>
+          ) : null}
+
+          {cancelledDeposit ? (
+            <p className="mt-4 rounded-2xl border border-amber-200/90 bg-amber-50/90 px-5 py-4 text-sm font-medium text-amber-950">
+              Payment was cancelled. No appointment was confirmed — please
+              choose a time again.
+            </p>
+          ) : null}
 
           {!supabaseReady ? (
             <div className="mt-8 rounded-2xl bg-[#f1e6d6] p-5 text-[#6f5638]">
@@ -422,7 +502,10 @@ export default function BookPage() {
                 onClick={createBooking}
                 className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2]"
               >
-                Confirm booking
+                {settings.deposit_enabled &&
+                (settings.deposit_amount_cents ?? 0) > 0
+                  ? "Continue to deposit"
+                  : "Confirm booking"}
               </button>
 
               {message ? (
@@ -457,6 +540,20 @@ export default function BookPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function BookPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f6f0e7] px-5 py-16 text-center text-[#6f5638]">
+          Loading booking…
+        </main>
+      }
+    >
+      <BookPageContent />
+    </Suspense>
   );
 }
 

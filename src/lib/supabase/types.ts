@@ -1,4 +1,9 @@
-export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type BookingStatus =
+  | "pending"
+  | "pending_payment"
+  | "confirmed"
+  | "completed"
+  | "cancelled";
 
 export type Service = {
   id: string;
@@ -50,6 +55,10 @@ export type Booking = {
   google_calendar_sync_error?: string | null;
   google_calendar_sync_attempted_at?: string | null;
   google_calendar_last_success_at?: string | null;
+  /** Deposit taken at checkout (minor units, e.g. pence) */
+  deposit_cents?: number | null;
+  stripe_checkout_session_id?: string | null;
+  stripe_payment_intent_id?: string | null;
   created_at: string;
 };
 
@@ -59,6 +68,10 @@ export type BookingSettings = {
   buffer_minutes: number;
   minimum_notice_hours: number;
   deposit_rule: string;
+  /** When true, public booking requires Stripe Checkout for deposit_amount_cents before confirming */
+  deposit_enabled: boolean;
+  /** Amount in smallest currency unit (e.g. pence for GBP) */
+  deposit_amount_cents: number;
   booking_mode: "instant" | "request";
   notification_email: string;
   admin_email: string;

@@ -40,6 +40,11 @@ export async function sendBookingNotifications(
   }
 
   const { booking, serviceName, treatmentName } = details;
+
+  if (booking.status === "pending_payment") {
+    return { ok: true, skipped: "Awaiting deposit payment" };
+  }
+
   const calendar = buildCalendarArtifactsFromBooking(
     details.booking,
     details.serviceName,
