@@ -97,9 +97,6 @@ export default function AdminPage() {
   const [addBookingSaving, setAddBookingSaving] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
-  const [retryingCalendarId, setRetryingCalendarId] = useState<string | null>(
-    null,
-  );
   const [addBookingForm, setAddBookingForm] = useState({
     date: "",
     time: "09:30",
@@ -563,35 +560,6 @@ export default function AdminPage() {
     });
     setMessage(error ? error.message : "Booking settings saved.");
     await loadAdminData();
-  }
-
-  async function retryGoogleCalendar(bookingId: string) {
-    setRetryingCalendarId(bookingId);
-    try {
-      const res = await fetch("/api/calendar/retry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      if (!res.ok) {
-        setMessage(data.error ?? `Sync failed (${res.status}).`);
-        return;
-      }
-      setMessage(
-        "Google Calendar sync ran — check the status line on that booking.",
-      );
-      await loadAdminData();
-    } catch (err) {
-      console.error(err);
-      setMessage(
-        err instanceof Error ? err.message : "Google Calendar sync failed.",
-      );
-    } finally {
-      setRetryingCalendarId(null);
-    }
   }
 
   async function confirmBookingDelete() {
@@ -1302,36 +1270,7 @@ export default function AdminPage() {
       ) : null}
 
       {!loading && activeTab === "bookings" ? (
-        <>
-          <Panel title="Google Calendar sync">
-            <p className="text-sm leading-relaxed text-[#776b5f]">
-              Production needs{" "}
-              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                SUPABASE_SERVICE_ROLE_KEY
-              </code>{" "}
-              on Vercel (same server key as booking emails) plus{" "}
-              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                GOOGLE_CALENDAR_CLIENT_EMAIL
-              </code>
-              ,{" "}
-              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                GOOGLE_CALENDAR_PRIVATE_KEY
-              </code>
-              , and{" "}
-              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                GOOGLE_CALENDAR_CALENDAR_ID
-              </code>
-              . Enable Calendar API in Google Cloud and share your calendar with
-              the service account. Run{" "}
-              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                supabase/ensure_google_calendar_sync.sql
-              </code>{" "}
-              if sync columns are missing. Each booking shows status — use{" "}
-              <strong className="font-semibold text-[#5c4f42]">Retry</strong> after
-              fixing setup.
-            </p>
-          </Panel>
-          <Panel title="Instant bookings">
+        <Panel title="Instant bookings">
             <div className="grid gap-3">
               {bookings.map((booking) => (
                 <div
@@ -1395,36 +1334,10 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-4 flex flex-col gap-3 border-t border-[#dfcfb9]/50 pt-4 sm:flex-row sm:items-start sm:justify-between">
-                    <p className="max-w-2xl text-xs leading-relaxed text-[#776b5f]">
-                      <span className="font-semibold text-[#5c4f42]">
-                        Google Calendar:{" "}
-                      </span>
-                      {booking.google_calendar_event_id
-                        ? `Linked (${booking.google_calendar_event_id.slice(0, 18)}…)`
-                        : booking.google_calendar_sync_error
-                          ? `Error — ${booking.google_calendar_sync_error}`
-                          : "Not linked — add env vars + share calendar, or tap Retry."}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void retryGoogleCalendar(booking.id)}
-                      disabled={
-                        retryingCalendarId === booking.id ||
-                        bookingToDelete !== null
-                      }
-                      className="shrink-0 rounded-full border border-[#b9945b]/80 bg-[#f6f0e7] px-4 py-2 text-xs font-semibold text-[#6f5638] transition hover:bg-[#f1e6d6] disabled:opacity-50"
-                    >
-                      {retryingCalendarId === booking.id
-                        ? "Syncing…"
-                        : "Retry Google Calendar"}
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
           </Panel>
-        </>
       ) : null}
 
       {addBookingOpen ? (
