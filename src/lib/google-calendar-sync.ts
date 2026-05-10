@@ -280,7 +280,13 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
   if (!isGoogleCalendarSyncConfigured()) return;
 
   const supabase = createServiceRoleClient();
-  if (!supabase) return;
+  if (!supabase) {
+    console.error(
+      "syncBookingWithGoogleCalendar: missing SUPABASE_SERVICE_ROLE_KEY — Calendar sync and error logging cannot run on the server.",
+      bookingId,
+    );
+    return;
+  }
 
   await ensureBookingCalendarColumns(supabase);
 
@@ -289,6 +295,11 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
     console.error(
       "syncBookingWithGoogleCalendar: JWT client missing — check GOOGLE_CALENDAR_PRIVATE_KEY",
       bookingId,
+    );
+    await persistCalendarSyncFailure(
+      supabase,
+      bookingId,
+      "Invalid Google Calendar credentials — check GOOGLE_CALENDAR_PRIVATE_KEY and CLIENT_EMAIL in Vercel.",
     );
     return;
   }
@@ -340,27 +351,24 @@ export async function syncBookingWithGoogleCalendar(bookingId: string): Promise<
       .filter(Boolean)
       .join("\n");
 
-    const startIso = artifacts.startLondon.toISO();
-    const endIso = artifacts.endLondon.toISO();
-    if (!startIso || !endIso) {
-      await persistCalendarSyncFailure(
-        supabase,
-        bookingId,
-        "Could not compute event start/end (timezone).",
-      );
-      return;
-    }
+    // Wall-clock local time + timeZone (recommended by Google; avoids offset/timeZone clash).
+    const startWall = artifacts.startLondon
+      .setZone("Europe/London")
+      .toFormat("yyyy-MM-dd'T'HH:mm:ss");
+    const endWall = artifacts.endLondon
+      .setZone("Europe/London")
+      .toFormat("yyyy-MM-dd'T'HH:mm:ss");
 
     const eventBody = {
       summary: summaryTitle,
       description: clinicDescription,
       location: CLINIC_CALENDAR_LOCATION,
       start: {
-        dateTime: startIso,
+        dateTime: startWall,
         timeZone: "Europe/London",
       },
       end: {
-        dateTime: endIso,
+        dateTime: endWall,
         timeZone: "Europe/London",
       },
     };

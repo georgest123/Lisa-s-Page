@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
+import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
+import { retryGoogleCalendarSync } from "@/app/actions/google-calendar-retry";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
@@ -96,6 +97,9 @@ export default function AdminPage() {
   const [addBookingSaving, setAddBookingSaving] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
+  const [retryingCalendarId, setRetryingCalendarId] = useState<string | null>(
+    null,
+  );
   const [addBookingForm, setAddBookingForm] = useState({
     date: "",
     time: "09:30",
@@ -559,6 +563,24 @@ export default function AdminPage() {
     });
     setMessage(error ? error.message : "Booking settings saved.");
     await loadAdminData();
+  }
+
+  async function retryGoogleCalendar(bookingId: string) {
+    setRetryingCalendarId(bookingId);
+    try {
+      await retryGoogleCalendarSync(bookingId);
+      setMessage(
+        "Google Calendar sync ran — check the status line on that booking.",
+      );
+      await loadAdminData();
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err instanceof Error ? err.message : "Google Calendar sync failed.",
+      );
+    } finally {
+      setRetryingCalendarId(null);
+    }
   }
 
   async function confirmBookingDelete() {
@@ -1267,67 +1289,129 @@ export default function AdminPage() {
       ) : null}
 
       {!loading && activeTab === "bookings" ? (
-        <Panel title="Instant bookings">
-          <div className="grid gap-3">
-            {bookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="grid gap-4 rounded-[1.4rem] bg-[#fffaf2]/80 p-4 lg:grid-cols-[1fr_1fr_0.8fr_minmax(12rem,auto)]"
-              >
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
-                    Client
-                  </p>
-                  <p className="mt-1 font-semibold">{booking.client_name}</p>
-                  <p className="text-sm text-[#776b5f]">{booking.client_email}</p>
+        <>
+          <Panel title="Google Calendar sync">
+            <p className="text-sm leading-relaxed text-[#776b5f]">
+              Production needs{" "}
+              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                SUPABASE_SERVICE_ROLE_KEY
+              </code>{" "}
+              on Vercel (same server key as booking emails) plus{" "}
+              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                GOOGLE_CALENDAR_CLIENT_EMAIL
+              </code>
+              ,{" "}
+              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                GOOGLE_CALENDAR_PRIVATE_KEY
+              </code>
+              , and{" "}
+              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                GOOGLE_CALENDAR_CALENDAR_ID
+              </code>
+              . Enable Calendar API in Google Cloud and share your calendar with
+              the service account. Run{" "}
+              <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                supabase/ensure_google_calendar_sync.sql
+              </code>{" "}
+              if sync columns are missing. Each booking shows status — use{" "}
+              <strong className="font-semibold text-[#5c4f42]">Retry</strong> after
+              fixing setup.
+            </p>
+          </Panel>
+          <Panel title="Instant bookings">
+            <div className="grid gap-3">
+              {bookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="rounded-[1.4rem] bg-[#fffaf2]/80 p-4"
+                >
+                  <div className="grid gap-4 lg:grid-cols-[1fr_1fr_0.8fr_minmax(12rem,auto)]">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
+                        Client
+                      </p>
+                      <p className="mt-1 font-semibold">{booking.client_name}</p>
+                      <p className="text-sm text-[#776b5f]">
+                        {booking.client_email}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
+                        Treatment
+                      </p>
+                      <p className="mt-1 font-semibold">
+                        {serviceLabel(booking, services)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
+                        Time
+                      </p>
+                      <p className="mt-1 font-semibold">
+                        {booking.requested_date}, {booking.requested_time}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                      <select
+                        value={booking.status}
+                        onChange={(event) =>
+                          updateBookingStatus(
+                            booking.id,
+                            event.target.value as BookingStatus,
+                          )
+                        }
+                        className="min-w-[10rem] rounded-full border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-2 text-sm font-semibold text-[#2a211b]"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setBookingToDelete(booking)}
+                        disabled={
+                          deletingBookingId === booking.id ||
+                          bookingToDelete !== null
+                        }
+                        className="rounded-full border border-red-300/90 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition hover:bg-red-100 disabled:opacity-60"
+                      >
+                        {deletingBookingId === booking.id
+                          ? "Deleting…"
+                          : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3 border-t border-[#dfcfb9]/50 pt-4 sm:flex-row sm:items-start sm:justify-between">
+                    <p className="max-w-2xl text-xs leading-relaxed text-[#776b5f]">
+                      <span className="font-semibold text-[#5c4f42]">
+                        Google Calendar:{" "}
+                      </span>
+                      {booking.google_calendar_event_id
+                        ? `Linked (${booking.google_calendar_event_id.slice(0, 18)}…)`
+                        : booking.google_calendar_sync_error
+                          ? `Error — ${booking.google_calendar_sync_error}`
+                          : "Not linked — add env vars + share calendar, or tap Retry."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void retryGoogleCalendar(booking.id)}
+                      disabled={
+                        retryingCalendarId === booking.id ||
+                        bookingToDelete !== null
+                      }
+                      className="shrink-0 rounded-full border border-[#b9945b]/80 bg-[#f6f0e7] px-4 py-2 text-xs font-semibold text-[#6f5638] transition hover:bg-[#f1e6d6] disabled:opacity-50"
+                    >
+                      {retryingCalendarId === booking.id
+                        ? "Syncing…"
+                        : "Retry Google Calendar"}
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
-                    Treatment
-                  </p>
-                  <p className="mt-1 font-semibold">
-                    {serviceLabel(booking, services)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
-                    Time
-                  </p>
-                  <p className="mt-1 font-semibold">
-                    {booking.requested_date}, {booking.requested_time}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                  <select
-                    value={booking.status}
-                    onChange={(event) =>
-                      updateBookingStatus(
-                        booking.id,
-                        event.target.value as BookingStatus,
-                      )
-                    }
-                    className="min-w-[10rem] rounded-full border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-2 text-sm font-semibold text-[#2a211b]"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setBookingToDelete(booking)}
-                    disabled={
-                      deletingBookingId === booking.id || bookingToDelete !== null
-                    }
-                    className="rounded-full border border-red-300/90 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition hover:bg-red-100 disabled:opacity-60"
-                  >
-                    {deletingBookingId === booking.id ? "Deleting…" : "Delete"}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
+              ))}
+            </div>
+          </Panel>
+        </>
       ) : null}
 
       {addBookingOpen ? (
