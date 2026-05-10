@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
-import { retryGoogleCalendarSync } from "@/app/actions/google-calendar-retry";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
@@ -568,7 +567,18 @@ export default function AdminPage() {
   async function retryGoogleCalendar(bookingId: string) {
     setRetryingCalendarId(bookingId);
     try {
-      await retryGoogleCalendarSync(bookingId);
+      const res = await fetch("/api/calendar/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!res.ok) {
+        setMessage(data.error ?? `Sync failed (${res.status}).`);
+        return;
+      }
       setMessage(
         "Google Calendar sync ran — check the status line on that booking.",
       );
