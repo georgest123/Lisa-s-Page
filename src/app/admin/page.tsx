@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { deleteBookingPermanently } from "@/app/actions/delete-booking";
 import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
@@ -93,6 +94,7 @@ export default function AdminPage() {
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
   const [addBookingOpen, setAddBookingOpen] = useState(false);
   const [addBookingSaving, setAddBookingSaving] = useState(false);
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [addBookingForm, setAddBookingForm] = useState({
     date: "",
     time: "09:30",
@@ -547,6 +549,25 @@ export default function AdminPage() {
     });
     setMessage(error ? error.message : "Booking settings saved.");
     await loadAdminData();
+  }
+
+  async function removeBooking(booking: Booking) {
+    if (
+      !window.confirm(
+        `Permanently delete this booking for ${booking.client_name} on ${booking.requested_date} at ${booking.requested_time.slice(0, 5)}? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingBookingId(booking.id);
+    const result = await deleteBookingPermanently(booking.id);
+    setDeletingBookingId(null);
+    if (!result.ok) {
+      setMessage(result.error ?? "Could not delete booking.");
+      return;
+    }
+    setBookings((current) => current.filter((item) => item.id !== booking.id));
+    setMessage("Booking deleted.");
   }
 
   async function updateBookingStatus(id: string, status: BookingStatus) {
@@ -1229,7 +1250,7 @@ export default function AdminPage() {
             {bookings.map((booking) => (
               <div
                 key={booking.id}
-                className="grid gap-4 rounded-[1.4rem] bg-[#fffaf2]/80 p-4 lg:grid-cols-[1fr_1fr_0.8fr_auto]"
+                className="grid gap-4 rounded-[1.4rem] bg-[#fffaf2]/80 p-4 lg:grid-cols-[1fr_1fr_0.8fr_minmax(12rem,auto)]"
               >
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9b7a45]">
@@ -1254,21 +1275,31 @@ export default function AdminPage() {
                     {booking.requested_date}, {booking.requested_time}
                   </p>
                 </div>
-                <select
-                  value={booking.status}
-                  onChange={(event) =>
-                    updateBookingStatus(
-                      booking.id,
-                      event.target.value as BookingStatus,
-                    )
-                  }
-                  className="rounded-full border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-2 text-sm font-semibold text-[#2a211b]"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  <select
+                    value={booking.status}
+                    onChange={(event) =>
+                      updateBookingStatus(
+                        booking.id,
+                        event.target.value as BookingStatus,
+                      )
+                    }
+                    className="min-w-[10rem] rounded-full border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-2 text-sm font-semibold text-[#2a211b]"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => void removeBooking(booking)}
+                    disabled={deletingBookingId === booking.id}
+                    className="rounded-full border border-red-300/90 bg-red-50 px-4 py-2 text-sm font-semibold text-red-900 transition hover:bg-red-100 disabled:opacity-60"
+                  >
+                    {deletingBookingId === booking.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
