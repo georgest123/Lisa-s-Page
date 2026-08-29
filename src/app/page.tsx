@@ -476,7 +476,7 @@ export default async function Home() {
               </summary>
               <div className="border-t border-[#dfcfb9] px-7 pb-7 pt-2">
                 <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-[#9b7a45]">
-                  Includes
+                  Options
                 </p>
                 <ul className="grid gap-3 text-sm font-medium text-[#4e463d]">
                   {tile.details.map((detail, detailIndex) => (
