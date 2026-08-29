@@ -336,8 +336,8 @@ export default async function Home() {
         <div className="relative z-10">
           <div className="relative mx-auto aspect-[4/5] max-w-lg overflow-hidden rounded-[3rem] bg-[#d9c7ae] p-4 shadow-2xl shadow-[#8b765d]/20">
             <Image
-              src="/hero.jpg.png"
-              alt="L'Beau Clinique treatment room"
+              src="/NewLisa.PNG"
+              alt="Lisa at L'Beau Clinique"
               fill
               priority
               sizes="(min-width: 1024px) 42vw, 90vw"
