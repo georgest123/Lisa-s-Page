@@ -86,5 +86,9 @@ export type BookingSettings = {
   booking_mode: "instant" | "request";
   notification_email: string;
   admin_email: string;
+  /** Public URL of uploaded PDF/image brochure (Supabase Storage) */
+  brochure_file_url?: string | null;
+  brochure_file_name?: string | null;
+  brochure_uploaded_at?: string | null;
   updated_at: string;
 };

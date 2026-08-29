@@ -68,6 +68,15 @@ See `.env.example` in the repo.
 
 Run **`supabase/add_policies.sql`** once if `public.policies` is missing. Admins manage rows under **Scheduling studio → Policies**; active policies appear in the **Policies** section on the main site (and in the header nav).
 
+## Clinic brochure (upload + QR)
+
+1. Run **`supabase/add_brochure_upload.sql`** in the Supabase SQL Editor (creates `brochures` storage bucket + columns on `booking_settings`).
+2. In **Admin → Overview → Clinic brochure**, upload a **PDF**.
+3. Clients open **`/brochure`** (or scan the QR) and tap **Download brochure**.
+4. Download the QR PNG from the same admin panel to print or share.
+
+The QR always points at `/brochure` (stable URL). Replacing the PDF does not require reprinting a new QR.
+
 ## Booking deposits (Stripe)
 
 Optional: require a **card deposit** before a public booking is confirmed.
