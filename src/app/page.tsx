@@ -292,6 +292,7 @@ export default async function Home() {
         <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 text-sm font-medium text-[#776b5f] md:flex">
           <a href="#treatments">Treatments</a>
           <a href="#about">About</a>
+          <a href="/brochure">Brochure</a>
           <a href="#policies">Policies</a>
           <a href="#contact">Contact</a>
         </div>
@@ -711,12 +712,27 @@ export default async function Home() {
             </Link>
             .
           </p>
-          <Link
-            href="/admin"
-            className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638] sm:text-right"
-          >
-            Scheduling studio
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:justify-end">
+            <Link
+              href="/brochure"
+              className="text-xs font-medium text-[#776b5f]/70 transition hover:text-[#6f5638]"
+            >
+              Brochure
+            </Link>
+            <a
+              href="/api/brochure/qr?download=1"
+              download="lbeau-clinique-brochure-qr.png"
+              className="text-xs font-medium text-[#776b5f]/70 transition hover:text-[#6f5638]"
+            >
+              Download brochure QR
+            </a>
+            <Link
+              href="/admin"
+              className="text-xs font-medium text-[#776b5f]/55 transition hover:text-[#6f5638]"
+            >
+              Scheduling studio
+            </Link>
+          </div>
         </div>
       </section>
     </main>

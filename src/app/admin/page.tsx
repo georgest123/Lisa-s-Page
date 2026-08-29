@@ -989,6 +989,44 @@ export default function AdminPage() {
               <MetricCard label="Open days" value={availability.filter((slot) => slot.enabled).length} />
               <MetricCard label="Booking mode" value="Instant" />
             </div>
+            <div className="grid gap-5">
+              <Panel title="Share brochure">
+                <p className="mb-4 text-sm leading-relaxed text-[#776b5f]">
+                  Digital brochure for clients:{" "}
+                  <Link
+                    href="/brochure"
+                    className="font-semibold text-[#6f5638] underline underline-offset-2"
+                  >
+                    /brochure
+                  </Link>
+                  . Download the QR to print or send — scanning opens that page.
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/api/brochure/qr"
+                    alt="Brochure QR code"
+                    width={120}
+                    height={120}
+                    className="rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-2"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href="/api/brochure/qr?download=1"
+                      download="lbeau-clinique-brochure-qr.png"
+                      className="rounded-full bg-[#111820] px-5 py-2.5 text-center text-sm font-semibold text-[#fffaf2]"
+                    >
+                      Download QR PNG
+                    </a>
+                    <Link
+                      href="/brochure"
+                      className="rounded-full border border-[#dfcfb9] px-5 py-2.5 text-center text-sm font-semibold text-[#6f5638]"
+                    >
+                      Open brochure
+                    </Link>
+                  </div>
+                </div>
+              </Panel>
             <Panel title="Next steps">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 Done — shipped on this site
@@ -1031,6 +1069,11 @@ export default function AdminPage() {
                   <strong className="font-semibold text-[#2a211b]">Policies</strong>{" "}
                   tab: editable client-facing policies (accordion on the homepage when
                   active).
+                </li>
+                <li className="pl-1">
+                  Digital{" "}
+                  <strong className="font-semibold text-[#2a211b]">/brochure</strong>{" "}
+                  page + downloadable QR code for sharing with clients.
                 </li>
               </ul>
 
@@ -1154,6 +1197,7 @@ export default function AdminPage() {
                 ))}
               </ul>
             </Panel>
+            </div>
           </div>
         </div>
       ) : null}
