@@ -344,6 +344,12 @@ export default async function Home() {
             >
               Explore treatments
             </a>
+            <Link
+              href="/brochure"
+              className="rounded-full border border-[#d9c8ac] bg-[#fffaf2]/70 px-8 py-4 text-center font-semibold text-[#6f5638] transition hover:-translate-y-0.5 hover:bg-[#fffaf2]"
+            >
+              View brochure
+            </Link>
           </div>
         </div>
 
