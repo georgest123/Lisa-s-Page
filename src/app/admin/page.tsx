@@ -640,76 +640,6 @@ export default function AdminPage() {
     await loadAdminData();
   }
 
-  async function uploadBrochureFile(file: File) {
-    if (!supabase) return;
-
-    const allowed = [
-      "application/pdf",
-      "image/png",
-      "image/jpeg",
-      "image/webp",
-    ];
-    if (!allowed.includes(file.type) && !file.name.toLowerCase().endsWith(".pdf")) {
-      setMessage("Please upload a PDF (or PNG/JPG) brochure.");
-      return;
-    }
-
-    const extension =
-      file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-      "pdf";
-    const path = `clinic-brochure.${extension}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("brochures")
-      .upload(path, file, { upsert: true, contentType: file.type || undefined });
-
-    if (uploadError) {
-      setMessage(
-        `${uploadError.message} — if the bucket is missing, run supabase/add_brochure_upload.sql in Supabase.`,
-      );
-      return;
-    }
-
-    const { data } = supabase.storage.from("brochures").getPublicUrl(path);
-    // Cache-bust so browsers/QR clients get the latest file after replace
-    const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
-
-    const { error: updateError } = await supabase
-      .from("booking_settings")
-      .update({
-        brochure_file_url: publicUrl,
-        brochure_file_name: file.name,
-        brochure_uploaded_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", true);
-
-    if (updateError) {
-      setMessage(
-        `File uploaded but settings did not save: ${updateError.message}. Run supabase/add_brochure_upload.sql if columns are missing.`,
-      );
-      return;
-    }
-
-    setMessage("Brochure uploaded. Clients can download it via /brochure and the QR code.");
-    await loadAdminData();
-  }
-
-  async function clearBrochureFile() {
-    if (!supabase) return;
-    const { error } = await supabase
-      .from("booking_settings")
-      .update({
-        brochure_file_url: null,
-        brochure_file_name: null,
-        brochure_uploaded_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", true);
-    setMessage(error ? error.message : "Brochure link cleared.");
-    await loadAdminData();
-  }
-
   function updateAvailability(
     index: number,
     field: "opens_at" | "closes_at",
@@ -1069,91 +999,6 @@ export default function AdminPage() {
               <MetricCard label="Booking mode" value="Instant" />
             </div>
             <div className="grid gap-5">
-              <Panel title="Clinic brochure (upload + QR)">
-                <p className="mb-4 text-sm leading-relaxed text-[#776b5f]">
-                  Upload a PDF brochure. Clients open{" "}
-                  <Link
-                    href="/brochure"
-                    className="font-semibold text-[#6f5638] underline underline-offset-2"
-                  >
-                    /brochure
-                  </Link>{" "}
-                  (or scan the QR) to download it. First-time setup: run{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 text-xs">
-                    supabase/add_brochure_upload.sql
-                  </code>{" "}
-                  in Supabase.
-                </p>
-                <label className="mb-4 flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-dashed border-[#d9c8ac] bg-[#f6f0e7]/50 px-5 py-4">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                    Upload PDF
-                  </span>
-                  <input
-                    type="file"
-                    accept="application/pdf,image/png,image/jpeg,image/webp,.pdf"
-                    className="text-sm text-[#2a211b]"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void uploadBrochureFile(file);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
-                {settings.brochure_file_url ? (
-                  <p className="mb-4 text-sm text-[#5c4f42]">
-                    Current file:{" "}
-                    <a
-                      href={settings.brochure_file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-[#6f5638] underline underline-offset-2"
-                    >
-                      {settings.brochure_file_name ?? "View brochure"}
-                    </a>
-                    {settings.brochure_uploaded_at
-                      ? ` · uploaded ${new Date(settings.brochure_uploaded_at).toLocaleString("en-GB")}`
-                      : null}
-                  </p>
-                ) : (
-                  <p className="mb-4 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm text-[#6f5638]">
-                    No brochure uploaded yet.
-                  </p>
-                )}
-                <div className="flex flex-wrap items-center gap-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/api/brochure/qr"
-                    alt="Brochure QR code"
-                    width={120}
-                    height={120}
-                    className="rounded-2xl border border-[#dfcfb9] bg-[#fffaf2] p-2"
-                  />
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href="/api/brochure/qr?download=1"
-                      download="lbeau-clinique-brochure-qr.png"
-                      className="rounded-full bg-[#111820] px-5 py-2.5 text-center text-sm font-semibold text-[#fffaf2]"
-                    >
-                      Download QR PNG
-                    </a>
-                    <Link
-                      href="/brochure"
-                      className="rounded-full border border-[#dfcfb9] px-5 py-2.5 text-center text-sm font-semibold text-[#6f5638]"
-                    >
-                      Open brochure page
-                    </Link>
-                    {settings.brochure_file_url ? (
-                      <button
-                        type="button"
-                        onClick={() => void clearBrochureFile()}
-                        className="rounded-full border border-red-300/90 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-900"
-                      >
-                        Clear brochure link
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </Panel>
             <Panel title="Next steps">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 Done — shipped on this site
@@ -1196,13 +1041,6 @@ export default function AdminPage() {
                   <strong className="font-semibold text-[#2a211b]">Policies</strong>{" "}
                   tab: editable client-facing policies (accordion on the homepage when
                   active).
-                </li>
-                <li className="pl-1">
-                  Digital{" "}
-                  <strong className="font-semibold text-[#2a211b]">brochure upload</strong>{" "}
-                  (PDF) in admin + public{" "}
-                  <strong className="font-semibold text-[#2a211b]">/brochure</strong>{" "}
-                  download page with shareable QR code.
                 </li>
               </ul>
 
@@ -1280,14 +1118,6 @@ export default function AdminPage() {
                   ).
                 </li>
                 <li className="pl-1">
-                  <strong className="font-semibold text-[#2a211b]">Brochure upload:</strong>{" "}
-                  run{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/add_brochure_upload.sql
-                  </code>{" "}
-                  once, then upload a PDF under Overview → Clinic brochure.
-                </li>
-                <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Policies:</strong>{" "}
                   run{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
@@ -1320,6 +1150,7 @@ export default function AdminPage() {
               </p>
               <ul className="grid gap-3">
                 {[
+                  "Re-enable public brochure page + QR when ready.",
                   "SMS reminders (e.g. Twilio) before appointments.",
                   "Analytics (e.g. Plausible or GA4) on public pages only.",
                   "Customer accounts / login for booking history (larger change).",
