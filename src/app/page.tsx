@@ -11,6 +11,12 @@ export const dynamic = "force-dynamic";
 
 type MarketingVisual = "cryo" | "touch" | "face";
 
+type MarketingOption = {
+  name: string;
+  durationLabel: string | null;
+  priceLabel: string | null;
+};
+
 type MarketingTile = {
   key: string;
   eyebrow: string;
@@ -18,9 +24,13 @@ type MarketingTile = {
   visual: MarketingVisual;
   description: string;
   price: string;
-  details: string[];
+  details: MarketingOption[];
   imageUrl: string | null;
 };
+
+function optionFromName(name: string): MarketingOption {
+  return { name, durationLabel: null, priceLabel: null };
+}
 
 const FALLBACK_TILES: MarketingTile[] = [
   {
@@ -38,7 +48,7 @@ const FALLBACK_TILES: MarketingTile[] = [
       "Lifting and firming",
       "Fat freezing",
       "Cellulite fat freezing",
-    ],
+    ].map(optionFromName),
     imageUrl: null,
   },
   {
@@ -60,7 +70,7 @@ const FALLBACK_TILES: MarketingTile[] = [
       "Smokers lines",
       "Skin tags",
       "Age and sun spots",
-    ],
+    ].map(optionFromName),
     imageUrl: null,
   },
   {
@@ -80,7 +90,7 @@ const FALLBACK_TILES: MarketingTile[] = [
       "Tone",
       "Sculpt",
       "Volumise",
-    ],
+    ].map(optionFromName),
     imageUrl: null,
   },
 ];
@@ -180,14 +190,14 @@ async function loadMarketingTiles(): Promise<MarketingTile[]> {
     const serviceTreatments = allTreatments
       .filter((treatment) => treatment.service_id === service.id)
       .sort((a, b) => a.sort_order - b.sort_order);
-    const details = serviceTreatments.map((treatment) => {
-      const parts: string[] = [treatment.name];
-      if (treatment.price_label) parts.push(treatment.price_label);
-      if (treatment.duration_minutes != null) {
-        parts.push(`${treatment.duration_minutes} min`);
-      }
-      return parts.join(" · ");
-    });
+    const details: MarketingOption[] = serviceTreatments.map((treatment) => ({
+      name: treatment.name,
+      durationLabel:
+        treatment.duration_minutes != null
+          ? `${treatment.duration_minutes} min`
+          : null,
+      priceLabel: treatment.price_label?.trim() || null,
+    }));
 
     return {
       key: service.id,
@@ -197,7 +207,9 @@ async function loadMarketingTiles(): Promise<MarketingTile[]> {
       description: service.description ?? "",
       price: service.price_label ?? "",
       details:
-        details.length > 0 ? details : ["Ask during consultation"],
+        details.length > 0
+          ? details
+          : [optionFromName("Ask during consultation")],
       imageUrl: service.image_url,
     };
   });
@@ -483,9 +495,22 @@ export default async function Home() {
                   {tile.details.map((detail, detailIndex) => (
                     <li
                       key={`${tile.key}-${detailIndex}`}
-                      className="rounded-full bg-[#f1e6d6] px-4 py-3"
+                      className="flex items-center justify-between gap-3 rounded-full bg-[#f1e6d6] px-4 py-3"
                     >
-                      {detail}
+                      <span className="min-w-0 flex-1 leading-snug">
+                        {detail.name}
+                        {detail.durationLabel ? (
+                          <span className="text-[#776b5f]">
+                            {" "}
+                            · {detail.durationLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                      {detail.priceLabel ? (
+                        <span className="shrink-0 text-right font-semibold text-[#6f5638]">
+                          {detail.priceLabel}
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
