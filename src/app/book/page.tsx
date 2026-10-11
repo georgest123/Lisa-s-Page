@@ -36,9 +36,14 @@ const defaultSettings: BookPageSettings = {
   minimum_notice_hours: 24,
   booking_mode: "instant",
   buffer_minutes: 10,
-  deposit_enabled: false,
-  deposit_amount_cents: 0,
+  deposit_enabled: true,
+  deposit_amount_cents: 2500,
 };
+
+const GROUPON_CALL_TEL = "+441908587833";
+const GROUPON_CALL_DISPLAY = "01908 587833";
+const GROUPON_MSG_TEL = "+447717096809";
+const GROUPON_MSG_DISPLAY = "07717 096809";
 
 function formatGBPFromMinorUnits(cents: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -389,6 +394,26 @@ function BookPageContent() {
               </span>{" "}
               is required to confirm your booking. You will complete payment on
               Stripe&apos;s secure checkout before the appointment is final.
+            </p>
+          ) : null}
+
+          {!loading ? (
+            <p className="mt-4 rounded-2xl border border-[#dfcfb9]/90 bg-[#f1e6d6]/70 px-5 py-4 text-sm font-medium leading-relaxed text-[#5c4f42]">
+              All appointments with a Groupon Voucher will have to{" "}
+              <a
+                href={`tel:${GROUPON_CALL_TEL}`}
+                className="font-semibold text-[#2a211b] underline underline-offset-2"
+              >
+                call on {GROUPON_CALL_DISPLAY}
+              </a>{" "}
+              or{" "}
+              <a
+                href={`sms:${GROUPON_MSG_TEL}`}
+                className="font-semibold text-[#2a211b] underline underline-offset-2"
+              >
+                message on {GROUPON_MSG_DISPLAY}
+              </a>{" "}
+              to book your appointment.
             </p>
           ) : null}
 

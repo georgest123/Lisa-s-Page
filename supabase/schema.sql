@@ -74,8 +74,8 @@ alter table public.bookings add column if not exists google_calendar_sync_error 
 alter table public.bookings add column if not exists google_calendar_sync_attempted_at timestamptz;
 alter table public.bookings add column if not exists google_calendar_last_success_at timestamptz;
 
-alter table public.booking_settings add column if not exists deposit_enabled boolean not null default false;
-alter table public.booking_settings add column if not exists deposit_amount_cents integer not null default 0;
+alter table public.booking_settings add column if not exists deposit_enabled boolean not null default true;
+alter table public.booking_settings add column if not exists deposit_amount_cents integer not null default 2500;
 
 alter table public.bookings add column if not exists deposit_cents integer;
 alter table public.bookings add column if not exists stripe_checkout_session_id text;
