@@ -234,6 +234,7 @@ const team = [
   "Natalia, physiotherapist",
   "Debora, luxury nail, brow and lash expert",
   "Janis, beauty and personal care specialist",
+  "Margareth, hairdresser",
 ];
 
 function TreatmentVisual({ visual }: { visual: string }) {
