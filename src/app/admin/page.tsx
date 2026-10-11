@@ -7,6 +7,7 @@ import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { BOOKING_DEPOSIT_AMOUNT_CENTS } from "@/lib/booking-deposit";
 import { newBookingOverlapsExisting } from "@/lib/booking-slot-overlap";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
@@ -84,7 +85,7 @@ const defaultSettings: BookingSettings = {
   minimum_notice_hours: 24,
   deposit_rule: "£25 deposit",
   deposit_enabled: true,
-  deposit_amount_cents: 2500,
+  deposit_amount_cents: BOOKING_DEPOSIT_AMOUNT_CENTS,
   booking_mode: "instant",
   notification_email: adminEmail,
   admin_email: adminEmail,
@@ -265,8 +266,8 @@ export default function AdminPage() {
         ? {
             ...defaultSettings,
             ...loadedSettings,
-            deposit_enabled: loadedSettings.deposit_enabled ?? false,
-            deposit_amount_cents: loadedSettings.deposit_amount_cents ?? 0,
+            deposit_enabled: loadedSettings.deposit_enabled ?? true,
+            deposit_amount_cents: BOOKING_DEPOSIT_AMOUNT_CENTS,
             brochure_file_url: loadedSettings.brochure_file_url ?? null,
             brochure_file_name: loadedSettings.brochure_file_name ?? null,
             brochure_uploaded_at: loadedSettings.brochure_uploaded_at ?? null,
@@ -743,6 +744,8 @@ export default function AdminPage() {
       ...settings,
       id: true,
       booking_mode: "instant",
+      deposit_amount_cents: BOOKING_DEPOSIT_AMOUNT_CENTS,
+      deposit_rule: "£25 deposit",
       notification_email: adminEmail,
       admin_email: adminEmail,
       updated_at: new Date().toISOString(),
@@ -1668,19 +1671,8 @@ export default function AdminPage() {
               <AdminInput
                 label="Deposit amount (GBP)"
                 type="number"
-                value={
-                  settings.deposit_amount_cents > 0
-                    ? String(settings.deposit_amount_cents / 100)
-                    : ""
-                }
-                onChange={(value) => {
-                  const n = parseFloat(value);
-                  setSettings((current) => ({
-                    ...current,
-                    deposit_amount_cents:
-                      Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : 0,
-                  }));
-                }}
+                value={String(BOOKING_DEPOSIT_AMOUNT_CENTS / 100)}
+                disabled
               />
               <AdminInput
                 label="Notification email"

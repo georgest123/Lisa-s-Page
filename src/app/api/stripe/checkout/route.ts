@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { BOOKING_DEPOSIT_AMOUNT_CENTS } from "@/lib/booking-deposit";
 import { getPublicSiteUrlFromRequest } from "@/lib/site-url";
 import { getStripe, getStripeCurrency } from "@/lib/stripe-server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -41,11 +42,11 @@ export async function POST(request: Request) {
 
   const { data: settings } = await supabase
     .from("booking_settings")
-    .select("deposit_enabled, deposit_amount_cents")
+    .select("deposit_enabled")
     .eq("id", true)
     .maybeSingle();
 
-  const depositCents = settings?.deposit_amount_cents ?? 0;
+  const depositCents = BOOKING_DEPOSIT_AMOUNT_CENTS;
   if (!settings?.deposit_enabled || depositCents <= 0) {
     return NextResponse.json(
       { error: "Deposits are not enabled or amount is zero." },

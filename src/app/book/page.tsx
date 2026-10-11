@@ -7,6 +7,10 @@ import { notifyBookingByEmail } from "@/app/actions/booking-email";
 import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import {
+  BOOKING_DEPOSIT_AMOUNT_CENTS,
+  formatDepositGBP,
+} from "@/lib/booking-deposit";
+import {
   bookingOccupiedRange,
   minutesFromTimeString,
   newBookingOverlapsExisting,
@@ -37,20 +41,13 @@ const defaultSettings: BookPageSettings = {
   booking_mode: "instant",
   buffer_minutes: 10,
   deposit_enabled: true,
-  deposit_amount_cents: 2500,
+  deposit_amount_cents: BOOKING_DEPOSIT_AMOUNT_CENTS,
 };
 
 const GROUPON_CALL_TEL = "+441908587833";
 const GROUPON_CALL_DISPLAY = "01908 587833";
 const GROUPON_MSG_TEL = "+447717096809";
 const GROUPON_MSG_DISPLAY = "07717 096809";
-
-function formatGBPFromMinorUnits(cents: number) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(cents / 100);
-}
 
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -136,8 +133,8 @@ function BookPageContent() {
         setSettings({
           ...defaultSettings,
           ...raw,
-          deposit_enabled: raw.deposit_enabled ?? false,
-          deposit_amount_cents: raw.deposit_amount_cents ?? 0,
+          deposit_enabled: raw.deposit_enabled ?? true,
+          deposit_amount_cents: BOOKING_DEPOSIT_AMOUNT_CENTS,
         });
       }
       setSelectedServiceId(loadedServices[0]?.id ?? "");
@@ -284,8 +281,7 @@ function BookPageContent() {
     }
 
     const depositRequired =
-      Boolean(settings.deposit_enabled) &&
-      (settings.deposit_amount_cents ?? 0) > 0;
+      Boolean(settings.deposit_enabled) && BOOKING_DEPOSIT_AMOUNT_CENTS > 0;
 
     const bookingId = crypto.randomUUID();
     const initialStatus = depositRequired
@@ -384,13 +380,11 @@ function BookPageContent() {
             be saved into the scheduling studio.
           </p>
 
-          {!loading &&
-          settings.deposit_enabled &&
-          (settings.deposit_amount_cents ?? 0) > 0 ? (
+          {!loading && settings.deposit_enabled ? (
             <p className="mt-4 rounded-2xl border border-[#e8c9a8]/90 bg-[#fffaf2]/90 px-5 py-4 text-sm font-medium text-[#5c4f42]">
               A deposit of{" "}
               <span className="font-semibold text-[#2a211b]">
-                {formatGBPFromMinorUnits(settings.deposit_amount_cents)}
+                {formatDepositGBP()}
               </span>{" "}
               is required to confirm your booking. You will complete payment on
               Stripe&apos;s secure checkout before the appointment is final.
@@ -527,8 +521,7 @@ function BookPageContent() {
                 onClick={createBooking}
                 className="rounded-full bg-[#111820] px-7 py-4 text-center font-semibold text-[#fffaf2]"
               >
-                {settings.deposit_enabled &&
-                (settings.deposit_amount_cents ?? 0) > 0
+                {settings.deposit_enabled
                   ? "Continue to deposit"
                   : "Confirm booking"}
               </button>
