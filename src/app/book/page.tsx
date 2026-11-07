@@ -342,14 +342,31 @@ function BookPageContent() {
     }
 
     await requestGoogleCalendarSync(bookingId);
-    void notifyBookingByEmail(bookingId, "created");
+    const notifyResult = await notifyBookingByEmail(bookingId, "created");
 
     setLastBookingId(bookingId);
-    setMessage(
-      settings.booking_mode === "instant"
-        ? "Your booking is confirmed. We will contact you if we need anything else."
-        : "Your request has been sent. We will confirm your booking shortly.",
-    );
+    const phoneNote = clientPhone.trim()
+      ? " Check your email and text message for confirmation details."
+      : " Check your email for confirmation details.";
+    if (!notifyResult.ok) {
+      setMessage(
+        settings.booking_mode === "instant"
+          ? `Your booking is confirmed, but we could not send the confirmation email (${notifyResult.error ?? "unknown error"}). Please contact the clinic if you need confirmation.`
+          : `Your request has been sent, but we could not send the confirmation email (${notifyResult.error ?? "unknown error"}). Please contact the clinic if you need confirmation.`,
+      );
+    } else if (notifyResult.skipped) {
+      setMessage(
+        settings.booking_mode === "instant"
+          ? `Your booking is confirmed. Email confirmation is not configured yet (${notifyResult.skipped}).`
+          : `Your request has been sent. Email confirmation is not configured yet (${notifyResult.skipped}).`,
+      );
+    } else {
+      setMessage(
+        settings.booking_mode === "instant"
+          ? `Your booking is confirmed.${phoneNote}`
+          : `Your request has been sent. We will confirm your booking shortly.${phoneNote}`,
+      );
+    }
     setClientName("");
     setClientEmail("");
     setClientPhone("");

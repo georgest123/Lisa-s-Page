@@ -10,7 +10,7 @@ import type { BookingStatus } from "@/lib/supabase/types";
  */
 export async function fulfillStripeDeposit(
   session: Stripe.Checkout.Session,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; notified?: boolean }> {
   const bookingId =
     session.metadata?.booking_id?.trim() ??
     session.client_reference_id?.trim() ??
@@ -47,40 +47,47 @@ export async function fulfillStripeDeposit(
     return { ok: false, error: loadErr?.message ?? "Booking not found" };
   }
 
-  if (bookingRow.status !== "pending_payment") {
-    return { ok: true };
+  if (bookingRow.status === "pending_payment") {
+    const { data: settings } = await supabase
+      .from("booking_settings")
+      .select("booking_mode")
+      .eq("id", true)
+      .maybeSingle();
+
+    const mode = settings?.booking_mode ?? "instant";
+    const nextStatus: BookingStatus =
+      mode === "instant" ? "confirmed" : "pending";
+
+    const { data: updated, error: updErr } = await supabase
+      .from("bookings")
+      .update({
+        status: nextStatus,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_checkout_session_id: session.id,
+      })
+      .eq("id", bookingId)
+      .eq("status", "pending_payment")
+      .select("id")
+      .maybeSingle();
+
+    if (updErr) {
+      return { ok: false, error: updErr.message };
+    }
+
+    // Another request (webhook vs return page) may have won the update race.
+    if (updated) {
+      await syncBookingWithGoogleCalendar(bookingId);
+      const notify = await sendBookingNotifications(bookingId, "created");
+      if (!notify.ok) {
+        console.error("fulfillStripeDeposit notify", notify.error);
+      } else if (notify.skipped) {
+        console.warn("fulfillStripeDeposit notify skipped", notify.skipped);
+      }
+      return { ok: true, notified: true };
+    }
   }
 
-  const { data: settings } = await supabase
-    .from("booking_settings")
-    .select("booking_mode")
-    .eq("id", true)
-    .maybeSingle();
-
-  const mode = settings?.booking_mode ?? "instant";
-  const nextStatus: BookingStatus =
-    mode === "instant" ? "confirmed" : "pending";
-
-  const { data: updated, error: updErr } = await supabase
-    .from("bookings")
-    .update({
-      status: nextStatus,
-      stripe_payment_intent_id: paymentIntentId,
-      stripe_checkout_session_id: session.id,
-    })
-    .eq("id", bookingId)
-    .eq("status", "pending_payment")
-    .select("id")
-    .maybeSingle();
-
-  if (updErr) {
-    return { ok: false, error: updErr.message };
-  }
-  if (!updated) {
-    return { ok: true };
-  }
-
-  await syncBookingWithGoogleCalendar(bookingId);
-  await sendBookingNotifications(bookingId, "created");
-  return { ok: true };
+  // Already moved off pending_payment — do not resend (avoids duplicate emails
+  // when both the Stripe webhook and deposit-return page run).
+  return { ok: true, notified: false };
 }

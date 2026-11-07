@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fulfillStripeDeposit } from "@/lib/fulfill-stripe-deposit";
 import { getStripe } from "@/lib/stripe-server";
 
 type Props = {
@@ -8,17 +9,34 @@ type Props = {
 export default async function DepositReturnPage({ searchParams }: Props) {
   const { session_id: sessionId } = await searchParams;
   let bookingId: string | null = null;
+  let notifyNote =
+    "Your appointment is being confirmed. You should receive a confirmation email with full details, and a text message if you shared your mobile number.";
 
   if (sessionId) {
     const stripe = getStripe();
     if (stripe) {
       try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const session = await stripe.checkout.sessions.retrieve(sessionId, {
+          expand: ["payment_intent"],
+        });
         bookingId =
           session.metadata?.booking_id?.trim() ||
           session.client_reference_id?.trim() ||
           null;
-      } catch {
+
+        // Backup if the Stripe webhook is delayed or missing — confirms the
+        // booking and sends the client email/SMS from this success page.
+        const result = await fulfillStripeDeposit(session);
+        if (!result.ok) {
+          console.error("deposit-return fulfill", result.error);
+          notifyNote =
+            "Your payment went through. If you do not receive a confirmation email within a few minutes, contact the clinic and we will confirm manually.";
+        } else if (result.notified) {
+          notifyNote =
+            "Your appointment is confirmed. A confirmation email is on its way, plus a text if you shared your mobile number.";
+        }
+      } catch (error) {
+        console.error("deposit-return", error);
         bookingId = null;
       }
     }
@@ -33,11 +51,8 @@ export default async function DepositReturnPage({ searchParams }: Props) {
         <h1 className="mt-4 text-3xl font-semibold tracking-tight">
           Thank you — your deposit went through.
         </h1>
-        <p className="mt-4 leading-relaxed text-[#776b5f]">
-          Your appointment is being confirmed. You should also receive a
-          confirmation email with full details. Add the appointment to your
-          calendar below.
-        </p>
+        <p className="mt-4 leading-relaxed text-[#776b5f]">{notifyNote} Add
+          the appointment to your calendar below.</p>
 
         {bookingId ? (
           <p className="mt-6 text-sm leading-relaxed text-[#5c4f42]">
