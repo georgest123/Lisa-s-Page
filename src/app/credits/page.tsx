@@ -6,7 +6,7 @@ const CONTACT_EMAIL = "georgestaicu37@gmail.com";
 export const metadata: Metadata = {
   title: "About this website | George Staicu",
   description:
-    "Features and integrations built for L'Beau Clinique — marketing site, booking, admin scheduling studio, payments, and calendar.",
+    "Features and integrations built for L'Beau Clinique — marketing site, booking, admin scheduling studio, deposits, reminders, and calendar sync.",
 };
 
 export default function CreditsPage() {
@@ -51,7 +51,8 @@ export default function CreditsPage() {
               </li>
               <li>
                 Opening hours on the homepage stay in sync with the admin
-                availability editor.
+                availability editor; editable client policies; brochure page with
+                QR download for print and sharing.
               </li>
             </ul>
           </div>
@@ -62,7 +63,7 @@ export default function CreditsPage() {
             </h2>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-[#5c4f42] marker:text-[#9b7a45]">
               <li>
-                Secure login via email OTP (no magic links) for the clinic email.
+                Secure login via email OTP for the clinic admin address.
               </li>
               <li>
                 Full CRUD for services and per-treatment areas — names,
@@ -72,32 +73,45 @@ export default function CreditsPage() {
                 Weekly availability editor with saved hours per weekday.
               </li>
               <li>
-                Bookings overview with status workflow, deletion, and a visual
-                weekly calendar with hover details and admin-created appointments.
+                Visual weekly calendar with hover details; click to edit; add from
+                empty slots; overlapping appointments shown side by side.
+              </li>
+              <li>
+                Edit existing bookings; create catalogue or custom appointments
+                (freeform name + duration); optional intentional overlap when
+                needed.
+              </li>
+              <li>
+                Bookings list with status workflow and safe delete; Policies CMS
+                for the public homepage.
               </li>
             </ul>
           </div>
 
           <div>
             <h2 className="text-xl font-semibold text-[#17130f]">
-              Public booking &amp; operations
+              Public booking &amp; notifications
             </h2>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-[#5c4f42] marker:text-[#9b7a45]">
               <li>
                 Instant booking flow with slots that respect treatment length and
-                configurable buffer time — no overlapping appointments.
+                configurable buffer time — clients cannot double-book.
               </li>
               <li>
-                Optional Stripe Checkout deposits; booking advances after successful
-                payment with webhook-driven confirmation.
+                £25 Stripe Checkout deposits; booking confirms after successful
+                payment (webhook + deposit-return backup).
               </li>
               <li>
-                Transactional emails (client + clinic) via Resend; calendar
-                attachments and ICS download / Google Calendar links.
+                Confirmation emails via Resend (client + clinic); SMS confirmation
+                via Twilio when a phone number is provided.
               </li>
               <li>
-                Google Calendar API integration so confirmed bookings sync to the
-                clinic calendar with status-aware updates.
+                Automatic day-before reminder emails for tomorrow&apos;s
+                appointments (daily scheduled job).
+              </li>
+              <li>
+                Calendar artefacts: .ics download and Google Calendar links;
+                optional Google Calendar API sync to the clinic calendar.
               </li>
             </ul>
           </div>
@@ -108,12 +122,13 @@ export default function CreditsPage() {
             </h2>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-[#5c4f42] marker:text-[#9b7a45]">
               <li>
-                Supabase (PostgreSQL, Auth, Row Level Security, optional storage)
-                for data integrity and safe admin vs public access.
+                Supabase (PostgreSQL, Auth, Row Level Security, Storage) for data
+                integrity and safe admin vs public access.
               </li>
               <li>
-                Deployed for continuous delivery — infrastructure-ready for
-                production traffic and domain hosting.
+                Deployed on Vercel with continuous delivery, environment-backed
+                integrations (Resend, Stripe, Twilio, Google Calendar), and
+                production-ready domain hosting.
               </li>
             </ul>
           </div>
