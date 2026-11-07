@@ -74,6 +74,8 @@ export type Booking = {
   deposit_cents?: number | null;
   stripe_checkout_session_id?: string | null;
   stripe_payment_intent_id?: string | null;
+  /** Set when the ~24h client reminder email has been sent */
+  reminder_email_sent_at?: string | null;
   created_at: string;
 };
 

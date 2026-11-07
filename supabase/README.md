@@ -49,6 +49,15 @@ Admins can upload service pictures from `/admin`; the public site can read them.
 
 The public `/book` page creates confirmed bookings when booking mode is `instant`.
 
+## Day-before booking reminder emails
+
+1. Run **`supabase/add_booking_reminders.sql`** once (adds `bookings.reminder_email_sent_at`).
+2. In Vercel set **`CRON_SECRET`** (long random string) for Production + Preview.
+3. Deploy — `vercel.json` schedules **`GET /api/cron/booking-reminders`** daily at **07:00 UTC** (Hobby plan allows one cron per day).
+4. Protect the route with `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this when `CRON_SECRET` is set).
+
+Each run emails clients with a **tomorrow** appointment (`confirmed` / `pending` only), once per booking.
+
 ## Admin custom bookings
 
 Run **`supabase/add_admin_custom_bookings.sql`** once. This adds `custom_service_name` and `custom_duration_minutes` on `bookings`, and requires a catalogue `service_id` for anonymous public inserts. Admins can create freeform appointments (custom name + duration) from the scheduling studio without picking a predefined service.
