@@ -56,11 +56,13 @@ export function newBookingOverlapsExisting(
   bufferMinutes: number,
   existingBookings: Booking[],
   services: ServiceWithTreatments[],
+  excludeBookingId?: string | null,
 ): boolean {
   const start = minutesFromTimeString(startTimeStr);
   const candEnd = start + durationMinutes + bufferMinutes;
 
   for (const booking of existingBookings) {
+    if (excludeBookingId && booking.id === excludeBookingId) continue;
     if (booking.requested_date !== requestedDate) continue;
     if (booking.status === "cancelled") continue;
 

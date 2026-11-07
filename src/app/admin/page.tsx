@@ -120,6 +120,8 @@ export default function AdminPage() {
   const [calendarWeekOffset, setCalendarWeekOffset] = useState(0);
   const [addBookingOpen, setAddBookingOpen] = useState(false);
   const [addBookingSaving, setAddBookingSaving] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
+  const [allowBookingOverlap, setAllowBookingOverlap] = useState(false);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null);
   const [addBookingForm, setAddBookingForm] = useState({
@@ -169,7 +171,11 @@ export default function AdminPage() {
   useEffect(() => {
     if (!addBookingOpen) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setAddBookingOpen(false);
+      if (event.key === "Escape") {
+        setAddBookingOpen(false);
+        setEditingBookingId(null);
+        setAllowBookingOverlap(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -799,6 +805,12 @@ export default function AdminPage() {
     await loadAdminData();
   }
 
+  function closeBookingModal() {
+    setAddBookingOpen(false);
+    setEditingBookingId(null);
+    setAllowBookingOverlap(false);
+  }
+
   function openAddBookingModal(preset?: { date: string; timeMinutes: number }) {
     const firstActive = services.find((service) => service.active);
     const step = settings.slot_interval_minutes || 15;
@@ -807,6 +819,8 @@ export default function AdminPage() {
       preset?.timeMinutes ?? parseTimeToMinutes("09:30");
     minutes = Math.round(minutes / step) * step;
     minutes = Math.max(0, Math.min(minutes, 24 * 60 - step));
+    setEditingBookingId(null);
+    setAllowBookingOverlap(false);
     setAddBookingForm({
       date: dateStr,
       time: formatHourLabel(minutes),
@@ -824,7 +838,25 @@ export default function AdminPage() {
     setAddBookingOpen(true);
   }
 
-  async function createCalendarBooking() {
+  function openEditBookingModal(booking: Booking) {
+    const timeRaw = booking.requested_time?.slice(0, 5) || "09:30";
+    setEditingBookingId(booking.id);
+    setAllowBookingOverlap(false);
+    setAddBookingForm({
+      date: booking.requested_date,
+      time: timeRaw,
+      clientName: booking.client_name,
+      clientEmail: booking.client_email,
+      clientPhone: booking.client_phone ?? "",
+      serviceId: booking.service_id ?? "",
+      treatmentId: booking.treatment_id ?? "",
+      notes: booking.notes ?? "",
+      status: booking.status,
+    });
+    setAddBookingOpen(true);
+  }
+
+  async function saveCalendarBooking() {
     if (!supabase) return;
     if (
       !addBookingForm.clientName.trim() ||
@@ -856,6 +888,7 @@ export default function AdminPage() {
       rawTime.length >= 5 ? rawTime.slice(0, 5) : timeNorm.slice(0, 5);
 
     if (
+      !allowBookingOverlap &&
       newBookingOverlapsExisting(
         addBookingForm.date,
         timeCheck,
@@ -863,19 +896,16 @@ export default function AdminPage() {
         bufferMinutes,
         bookings,
         services,
+        editingBookingId,
       )
     ) {
       setMessage(
-        "That time overlaps another booking (including buffer time). Choose another slot.",
+        "That time overlaps another booking (including buffer time). Choose another slot, or tick “Allow overlap”.",
       );
       return;
     }
 
-    setAddBookingSaving(true);
-    setMessage("");
-    const bookingId = crypto.randomUUID();
-    const { error } = await supabase.from("bookings").insert({
-      id: bookingId,
+    const payload = {
       client_name: addBookingForm.clientName.trim(),
       client_email: addBookingForm.clientEmail.trim(),
       client_phone: addBookingForm.clientPhone.trim() || null,
@@ -885,6 +915,37 @@ export default function AdminPage() {
       requested_time: timeNorm,
       notes: addBookingForm.notes.trim() || null,
       status: addBookingForm.status,
+    };
+
+    setAddBookingSaving(true);
+    setMessage("");
+
+    if (editingBookingId) {
+      const { error } = await supabase
+        .from("bookings")
+        .update(payload)
+        .eq("id", editingBookingId);
+      setAddBookingSaving(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      await requestGoogleCalendarSync(editingBookingId);
+      void notifyBookingByEmail(editingBookingId, "updated");
+      setMessage(
+        allowBookingOverlap
+          ? "Booking updated (overlap allowed)."
+          : "Booking updated.",
+      );
+      closeBookingModal();
+      await loadAdminData();
+      return;
+    }
+
+    const bookingId = crypto.randomUUID();
+    const { error } = await supabase.from("bookings").insert({
+      id: bookingId,
+      ...payload,
     });
     setAddBookingSaving(false);
     if (error) {
@@ -893,8 +954,12 @@ export default function AdminPage() {
     }
     await requestGoogleCalendarSync(bookingId);
     void notifyBookingByEmail(bookingId, "created");
-    setMessage("Booking added.");
-    setAddBookingOpen(false);
+    setMessage(
+      allowBookingOverlap
+        ? "Booking added (overlap allowed)."
+        : "Booking added.",
+    );
+    closeBookingModal();
     await loadAdminData();
   }
 
@@ -1037,7 +1102,9 @@ export default function AdminPage() {
             <p className="mb-4 text-sm text-[#776b5f]">
               Blocks use each service duration. Status colours: confirmed,
               pending, awaiting deposit (pending_payment), completed, cancelled.
-              Click an empty area in a day column to add a booking at that time.
+              Click a booking to edit it, or an empty area in a day column to
+              add one. Use “Allow overlap” in the modal when you need a double
+              booking.
             </p>
             {bookingsThisWeek.length === 0 ? (
               <p className="mb-4 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm font-medium text-[#6f5638]">
@@ -1053,6 +1120,7 @@ export default function AdminPage() {
               onDaySlotClick={(date, timeMinutes) =>
                 openAddBookingModal({ date, timeMinutes })
               }
+              onBookingClick={(booking) => openEditBookingModal(booking)}
             />
           </Panel>
 
@@ -1177,7 +1245,8 @@ export default function AdminPage() {
                   <strong className="font-semibold text-[#2a211b]">
                     Stripe deposits
                   </strong>
-                  ), bookings list, weekly calendar with add/hover, delete bookings.
+                  ), bookings list with edit/delete, weekly calendar with
+                  add/edit/hover, optional admin overlap when saving.
                 </li>
                 <li className="pl-1">
                   Emails via Resend (client + clinic); .ics download &amp; Google
@@ -1721,6 +1790,13 @@ export default function AdminPage() {
                       </select>
                       <button
                         type="button"
+                        onClick={() => openEditBookingModal(booking)}
+                        className="rounded-full border border-[#dfcfb9] bg-[#fffaf2] px-4 py-2 text-sm font-semibold text-[#6f5638]"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setBookingToDelete(booking)}
                         disabled={
                           deletingBookingId === booking.id ||
@@ -1834,7 +1910,7 @@ export default function AdminPage() {
       {addBookingOpen ? (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-[#17130f]/55 p-4 backdrop-blur-[2px]"
-          onClick={() => setAddBookingOpen(false)}
+          onClick={() => closeBookingModal()}
           role="presentation"
         >
           <div
@@ -1848,10 +1924,12 @@ export default function AdminPage() {
               id="add-booking-title"
               className="text-xl font-semibold tracking-[-0.03em]"
             >
-              Add booking
+              {editingBookingId ? "Edit booking" : "Add booking"}
             </h3>
             <p className="mt-2 text-sm text-[#776b5f]">
-              Creates an appointment in Supabase and refreshes the calendar.
+              {editingBookingId
+                ? "Update this appointment, then save. Calendar and emails refresh after save."
+                : "Creates an appointment in Supabase and refreshes the calendar."}
             </p>
             <div className="mt-5 grid gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -1928,10 +2006,14 @@ export default function AdminPage() {
                 >
                   <option value="">Select service</option>
                   {services
-                    .filter((service) => service.active)
+                    .filter(
+                      (service) =>
+                        service.active || service.id === addBookingForm.serviceId,
+                    )
                     .map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.name}
+                        {!service.active ? " (inactive)" : ""}
                       </option>
                     ))}
                 </select>
@@ -1951,7 +2033,11 @@ export default function AdminPage() {
                   <option value="">—</option>
                   {services
                     .find((item) => item.id === addBookingForm.serviceId)
-                    ?.treatments.filter((treatment) => treatment.active)
+                    ?.treatments.filter(
+                      (treatment) =>
+                        treatment.active ||
+                        treatment.id === addBookingForm.treatmentId,
+                    )
                     .map((treatment) => (
                       <option key={treatment.id} value={treatment.id}>
                         {[
@@ -1960,6 +2046,7 @@ export default function AdminPage() {
                           treatment.duration_minutes != null
                             ? `${treatment.duration_minutes} min`
                             : null,
+                          !treatment.active ? "(inactive)" : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -1993,11 +2080,30 @@ export default function AdminPage() {
                   setAddBookingForm((current) => ({ ...current, notes: value }))
                 }
               />
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#dfcfb9]/80 bg-[#f6f0e7]/50 px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={allowBookingOverlap}
+                  onChange={(event) =>
+                    setAllowBookingOverlap(event.target.checked)
+                  }
+                />
+                <span className="text-sm leading-snug">
+                  <span className="font-semibold text-[#2a211b]">
+                    Allow overlap
+                  </span>
+                  <span className="block text-[#776b5f]">
+                    Save even if this slot clashes with another booking (or buffer).
+                    Public clients still cannot double-book.
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => setAddBookingOpen(false)}
+                onClick={() => closeBookingModal()}
                 className="rounded-full border border-[#dfcfb9] px-5 py-3 text-sm font-semibold text-[#6f5638]"
               >
                 Cancel
@@ -2005,10 +2111,14 @@ export default function AdminPage() {
               <button
                 type="button"
                 disabled={addBookingSaving}
-                onClick={() => void createCalendarBooking()}
+                onClick={() => void saveCalendarBooking()}
                 className="rounded-full bg-[#111820] px-5 py-3 text-sm font-semibold text-[#fffaf2] disabled:opacity-50"
               >
-                {addBookingSaving ? "Saving…" : "Save booking"}
+                {addBookingSaving
+                  ? "Saving…"
+                  : editingBookingId
+                    ? "Update booking"
+                    : "Save booking"}
               </button>
             </div>
           </div>
@@ -2241,6 +2351,7 @@ function WeeklyCalendarGrid({
   services,
   slotIntervalMinutes,
   onDaySlotClick,
+  onBookingClick,
 }: {
   weekDates: Date[];
   availability: Availability[];
@@ -2248,6 +2359,7 @@ function WeeklyCalendarGrid({
   services: ServiceWithTreatments[];
   slotIntervalMinutes: number;
   onDaySlotClick?: (date: string, timeMinutes: number) => void;
+  onBookingClick?: (booking: Booking) => void;
 }) {
   const layout = useMemo(() => {
     const bounds = weekGridBounds(weekDates, availability);
@@ -2400,9 +2512,22 @@ function WeeklyCalendarGrid({
                       <div
                         key={booking.id}
                         data-booking-block
-                        className="group absolute left-0.5 right-0.5 z-[6] hover:z-[35] sm:left-1 sm:right-1"
+                        role={onBookingClick ? "button" : undefined}
+                        tabIndex={onBookingClick ? 0 : undefined}
+                        className={`group absolute left-0.5 right-0.5 z-[6] hover:z-[35] sm:left-1 sm:right-1 ${onBookingClick ? "cursor-pointer" : ""}`}
                         style={{ top, height }}
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onBookingClick?.(booking);
+                        }}
+                        onKeyDown={(event) => {
+                          if (!onBookingClick) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onBookingClick(booking);
+                          }
+                        }}
                       >
                         <div
                           className={`relative z-[1] flex h-full flex-col overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
