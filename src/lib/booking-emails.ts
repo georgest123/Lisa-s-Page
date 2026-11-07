@@ -203,14 +203,23 @@ export async function sendBookingNotifications(
   ]);
 
   if (toClient.error) {
+    console.error("Resend client email failed", toClient.error);
     return { ok: false, error: toClient.error.message };
   }
   if (toAdmin.error) {
+    console.error("Resend admin email failed", toAdmin.error);
     return { ok: false, error: toAdmin.error.message };
   }
   if (!smsResult.ok) {
     console.error("sendBookingSms", smsResult.error);
   }
+
+  console.info("Booking notifications sent", {
+    bookingId: booking.id,
+    kind,
+    to: booking.client_email,
+    sms: smsResult.skipped ? `skipped:${smsResult.skipped}` : "sent",
+  });
 
   return { ok: true };
 }
