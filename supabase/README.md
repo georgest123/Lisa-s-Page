@@ -49,6 +49,10 @@ Admins can upload service pictures from `/admin`; the public site can read them.
 
 The public `/book` page creates confirmed bookings when booking mode is `instant`.
 
+## Admin custom bookings
+
+Run **`supabase/add_admin_custom_bookings.sql`** once. This adds `custom_service_name` and `custom_duration_minutes` on `bookings`, and requires a catalogue `service_id` for anonymous public inserts. Admins can create freeform appointments (custom name + duration) from the scheduling studio without picking a predefined service.
+
 ## Booking emails (Resend)
 
 Set these **server-only** variables (e.g. Vercel project settings):

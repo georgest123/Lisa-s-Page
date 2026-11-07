@@ -11,9 +11,18 @@ export function minutesFromTimeString(time: string): number {
 }
 
 export function durationMinutesForBookingRow(
-  booking: Pick<Booking, "service_id" | "treatment_id">,
+  booking: Pick<
+    Booking,
+    "service_id" | "treatment_id" | "custom_duration_minutes"
+  >,
   services: ServiceWithTreatments[],
 ): number {
+  if (
+    booking.custom_duration_minutes != null &&
+    booking.custom_duration_minutes > 0
+  ) {
+    return booking.custom_duration_minutes;
+  }
   const service = services.find((s) => s.id === booking.service_id);
   const treatment = service?.treatments.find((t) => t.id === booking.treatment_id);
   if (treatment?.duration_minutes != null && treatment.duration_minutes > 0) {
