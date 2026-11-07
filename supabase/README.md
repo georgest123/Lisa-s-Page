@@ -58,7 +58,17 @@ Set these **server-only** variables (e.g. Vercel project settings):
 - `BOOKING_EMAIL_FROM` — verified sender, e.g. `L Beaux <bookings@yourdomain.com>` (use Resend’s test sender `onboarding@resend.dev` only while testing)
 - `BOOKING_ADMIN_EMAIL` (optional) — overrides clinic copy recipient; defaults to `notification_email` from `booking_settings` or `lbeauclinique@gmail.com`
 
-After a booking is created from `/book` or `/admin`, or when status changes in admin, the app sends **two** emails: one to the client and one to the clinic (if `RESEND_API_KEY` is missing, sends are skipped with no error to the user).
+After a booking is created from `/book` or `/admin`, or when status changes in admin, the app sends **two** emails: one to the client and one to the clinic (if `RESEND_API_KEY` is missing, email sends are skipped with no error to the user). Deposit bookings wait until Stripe marks them paid, then the same confirmation runs.
+
+### Booking SMS (Twilio, optional)
+
+When the client enters a phone number, the same notification path also sends a short confirmation text if these **server-only** vars are set in Vercel:
+
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER` (E.164, e.g. `+447…` — or `TWILIO_PHONE_NUMBER`)
+
+If Twilio is unset, SMS is skipped quietly. UK numbers like `07…` are normalized to `+44…`.
 
 **Optional webhook:** Create the same secret as `BOOKING_NOTIFY_WEBHOOK_SECRET` and add a Supabase **Database Webhook** on `bookings` pointing to `POST https://YOUR_DOMAIN/api/booking-notify` with header `Authorization: Bearer YOUR_SECRET`. Prefer **INSERT only** if you also use **Stripe deposits**, otherwise an UPDATE from Stripe confirmation could trigger a second notification alongside the app’s own send.
 

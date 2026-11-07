@@ -1249,7 +1249,8 @@ export default function AdminPage() {
                   add/edit/hover, optional admin overlap when saving.
                 </li>
                 <li className="pl-1">
-                  Emails via Resend (client + clinic); .ics download &amp; Google
+                  Emails via Resend (client + clinic); SMS confirmation via Twilio
+                  when a phone number is on the booking; .ics download &amp; Google
                   Calendar links; optional{" "}
                   <strong className="font-semibold text-[#2a211b]">
                     Google Calendar API
@@ -1309,6 +1310,22 @@ export default function AdminPage() {
                     onboarding@resend.dev
                   </code>{" "}
                   when ready.
+                </li>
+                <li className="pl-1">
+                  <strong className="font-semibold text-[#2a211b]">Twilio SMS:</strong>{" "}
+                  set{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    TWILIO_ACCOUNT_SID
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    TWILIO_AUTH_TOKEN
+                  </code>
+                  , and{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    TWILIO_FROM_NUMBER
+                  </code>{" "}
+                  in Vercel so clients with a phone number get a confirmation text.
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Stripe:</strong>{" "}

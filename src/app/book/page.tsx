@@ -345,10 +345,13 @@ function BookPageContent() {
     void notifyBookingByEmail(bookingId, "created");
 
     setLastBookingId(bookingId);
+    const phoneNote = clientPhone.trim()
+      ? " Check your email and text message for confirmation details."
+      : " Check your email for confirmation details.";
     setMessage(
       settings.booking_mode === "instant"
-        ? "Your booking is confirmed. We will contact you if we need anything else."
-        : "Your request has been sent. We will confirm your booking shortly.",
+        ? `Your booking is confirmed.${phoneNote}`
+        : `Your request has been sent. We will confirm your booking shortly.${phoneNote}`,
     );
     setClientName("");
     setClientEmail("");

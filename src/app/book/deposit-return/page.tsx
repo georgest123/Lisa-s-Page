@@ -34,9 +34,9 @@ export default async function DepositReturnPage({ searchParams }: Props) {
           Thank you — your deposit went through.
         </h1>
         <p className="mt-4 leading-relaxed text-[#776b5f]">
-          Your appointment is being confirmed. You should also receive a
-          confirmation email with full details. Add the appointment to your
-          calendar below.
+          Your appointment is being confirmed. You should receive a confirmation
+          email with full details, and a text message if you shared your mobile
+          number. Add the appointment to your calendar below.
         </p>
 
         {bookingId ? (
