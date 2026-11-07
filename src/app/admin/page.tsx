@@ -1142,7 +1142,8 @@ export default function AdminPage() {
               Blocks use each service duration. Status colours: confirmed,
               pending, awaiting deposit (pending_payment), completed, cancelled.
               Click a booking to edit it, or an empty area in a day column to
-              add one. Admins can choose a catalogue service or a custom
+              add one. Overlapping appointments sit side by side in the day
+              column. Admins can choose a catalogue service or a custom
               appointment name and duration. Use “Allow overlap” when you need
               a double booking.
             </p>
@@ -2463,6 +2464,82 @@ function BookingHoverCard({
   );
 }
 
+type LaidOutBooking = {
+  booking: Booking;
+  startM: number;
+  endM: number;
+  column: number;
+  columnCount: number;
+};
+
+/** Outlook-style packing: overlapping events share the day column side by side. */
+function layoutOverlappingBookings(
+  dayBookings: Booking[],
+  services: ServiceWithTreatments[],
+): LaidOutBooking[] {
+  const items = dayBookings.map((booking) => {
+    const startM = parseTimeToMinutes(booking.requested_time);
+    const duration = bookingBlockDurationMinutes(booking, services);
+    return {
+      booking,
+      startM,
+      endM: startM + Math.max(duration, 15),
+    };
+  });
+
+  items.sort((a, b) => a.startM - b.startM || b.endM - a.endM);
+
+  const laidOut: LaidOutBooking[] = [];
+  let cluster: Array<{
+    booking: Booking;
+    startM: number;
+    endM: number;
+    column: number;
+  }> = [];
+  let clusterEnd = -1;
+  let columnEnds: number[] = [];
+
+  function flushCluster() {
+    if (cluster.length === 0) return;
+    const columnCount = Math.max(
+      1,
+      ...cluster.map((item) => item.column + 1),
+    );
+    for (const item of cluster) {
+      laidOut.push({
+        booking: item.booking,
+        startM: item.startM,
+        endM: item.endM,
+        column: item.column,
+        columnCount,
+      });
+    }
+    cluster = [];
+    clusterEnd = -1;
+    columnEnds = [];
+  }
+
+  for (const item of items) {
+    if (cluster.length > 0 && item.startM >= clusterEnd) {
+      flushCluster();
+    }
+
+    let column = columnEnds.findIndex((end) => end <= item.startM);
+    if (column === -1) {
+      column = columnEnds.length;
+      columnEnds.push(item.endM);
+    } else {
+      columnEnds[column] = item.endM;
+    }
+
+    cluster.push({ ...item, column });
+    clusterEnd = Math.max(clusterEnd, item.endM);
+  }
+
+  flushCluster();
+  return laidOut;
+}
+
 function WeeklyCalendarGrid({
   weekDates,
   availability,
@@ -2611,67 +2688,73 @@ function WeeklyCalendarGrid({
                       }}
                     />
                   ))}
-                  {dayBookings.map((booking) => {
-                    const startM = parseTimeToMinutes(booking.requested_time);
-                    const duration = bookingBlockDurationMinutes(
-                      booking,
-                      services,
-                    );
-                    const topRaw =
-                      (startM - layout.displayStart) * layout.pxPerMinute;
-                    const top = Math.max(0, topRaw);
-                    const rawHeight = duration * layout.pxPerMinute;
-                    const maxHeight = layout.totalHeight - top;
-                    const height = Math.min(
-                      Math.max(rawHeight, 40),
-                      Math.max(maxHeight, 0),
-                    );
-                    const label = serviceLabel(booking, services);
-                    return (
-                      <div
-                        key={booking.id}
-                        data-booking-block
-                        role={onBookingClick ? "button" : undefined}
-                        tabIndex={onBookingClick ? 0 : undefined}
-                        className={`group absolute left-0.5 right-0.5 z-[6] hover:z-[35] sm:left-1 sm:right-1 ${onBookingClick ? "cursor-pointer" : ""}`}
-                        style={{ top, height }}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onBookingClick?.(booking);
-                        }}
-                        onKeyDown={(event) => {
-                          if (!onBookingClick) return;
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
+                  {layoutOverlappingBookings(dayBookings, services).map(
+                    ({ booking, startM, endM, column, columnCount }) => {
+                      const topRaw =
+                        (startM - layout.displayStart) * layout.pxPerMinute;
+                      const top = Math.max(0, topRaw);
+                      const rawHeight =
+                        (endM - startM) * layout.pxPerMinute;
+                      const maxHeight = layout.totalHeight - top;
+                      const height = Math.min(
+                        Math.max(rawHeight, 40),
+                        Math.max(maxHeight, 0),
+                      );
+                      const label = serviceLabel(booking, services);
+                      const widthPct = 100 / columnCount;
+                      const leftPct = column * widthPct;
+                      const gapPx = columnCount > 1 ? 2 : 4;
+                      return (
+                        <div
+                          key={booking.id}
+                          data-booking-block
+                          role={onBookingClick ? "button" : undefined}
+                          tabIndex={onBookingClick ? 0 : undefined}
+                          className={`group absolute z-[6] hover:z-[35] ${onBookingClick ? "cursor-pointer" : ""}`}
+                          style={{
+                            top,
+                            height,
+                            left: `calc(${leftPct}% + ${gapPx / 2}px)`,
+                            width: `calc(${widthPct}% - ${gapPx}px)`,
+                          }}
+                          onClick={(event) => {
                             event.stopPropagation();
-                            onBookingClick(booking);
-                          }
-                        }}
-                      >
-                        <div
-                          className={`relative z-[1] flex h-full flex-col overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:px-2 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                            onBookingClick?.(booking);
+                          }}
+                          onKeyDown={(event) => {
+                            if (!onBookingClick) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              onBookingClick(booking);
+                            }
+                          }}
                         >
-                          <p className="truncate font-semibold leading-tight">
-                            {formatHourLabel(startM)}
-                          </p>
-                          <p className="truncate leading-tight">
-                            {booking.client_name}
-                          </p>
-                          <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
-                            {label}
-                          </p>
+                          <div
+                            className={`relative z-[1] flex h-full flex-col overflow-hidden rounded-lg border px-1 py-0.5 text-[10px] shadow-sm sm:px-1.5 sm:py-1 sm:text-xs ${bookingStatusClasses(booking.status)}`}
+                          >
+                            <p className="truncate font-semibold leading-tight">
+                              {formatHourLabel(startM)}
+                            </p>
+                            <p className="truncate leading-tight">
+                              {booking.client_name}
+                            </p>
+                            <p className="hidden truncate text-[10px] leading-tight opacity-90 sm:block">
+                              {label}
+                            </p>
+                          </div>
+                          <div
+                            className={`pointer-events-none invisible absolute top-0 z-[100] w-[min(18rem,calc(100vw-3rem))] opacity-0 shadow-2xl transition-opacity duration-150 group-hover:visible group-hover:opacity-100 ${pinTooltipLeft ? "right-full mr-1" : "left-full ml-1"}`}
+                          >
+                            <BookingHoverCard
+                              booking={booking}
+                              services={services}
+                            />
+                          </div>
                         </div>
-                        <div
-                          className={`pointer-events-none invisible absolute top-0 z-[100] w-[min(18rem,calc(100vw-3rem))] opacity-0 shadow-2xl transition-opacity duration-150 group-hover:visible group-hover:opacity-100 ${pinTooltipLeft ? "right-full mr-1" : "left-full ml-1"}`}
-                        >
-                          <BookingHoverCard
-                            booking={booking}
-                            services={services}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    },
+                  )}
                 </div>
               );
             })}
