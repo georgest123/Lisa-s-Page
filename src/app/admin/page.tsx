@@ -8,7 +8,10 @@ import { requestGoogleCalendarSync } from "@/lib/calendar-retry-client";
 import { removeGoogleCalendarEventIfLinked } from "@/app/actions/delete-booking";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { BOOKING_DEPOSIT_AMOUNT_CENTS } from "@/lib/booking-deposit";
-import { newBookingOverlapsExisting } from "@/lib/booking-slot-overlap";
+import {
+  durationMinutesForBookingRow,
+  newBookingOverlapsExisting,
+} from "@/lib/booking-slot-overlap";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import type {
   Availability,
@@ -130,8 +133,11 @@ export default function AdminPage() {
     clientName: "",
     clientEmail: "",
     clientPhone: "",
+    bookingKind: "catalogue" as "catalogue" | "custom",
     serviceId: "",
     treatmentId: "",
+    customServiceName: "",
+    customDurationMinutes: "60",
     notes: "",
     status: "confirmed" as BookingStatus,
   });
@@ -827,11 +833,14 @@ export default function AdminPage() {
       clientName: "",
       clientEmail: "",
       clientPhone: "",
+      bookingKind: "catalogue",
       serviceId: firstActive?.id ?? "",
       treatmentId:
         firstActive?.treatments.find((treatment) => treatment.active)?.id ??
         firstActive?.treatments[0]?.id ??
         "",
+      customServiceName: "",
+      customDurationMinutes: "60",
       notes: "",
       status: "confirmed",
     });
@@ -840,6 +849,8 @@ export default function AdminPage() {
 
   function openEditBookingModal(booking: Booking) {
     const timeRaw = booking.requested_time?.slice(0, 5) || "09:30";
+    const isCustom =
+      Boolean(booking.custom_service_name?.trim()) || !booking.service_id;
     setEditingBookingId(booking.id);
     setAllowBookingOverlap(false);
     setAddBookingForm({
@@ -848,8 +859,15 @@ export default function AdminPage() {
       clientName: booking.client_name,
       clientEmail: booking.client_email,
       clientPhone: booking.client_phone ?? "",
+      bookingKind: isCustom ? "custom" : "catalogue",
       serviceId: booking.service_id ?? "",
       treatmentId: booking.treatment_id ?? "",
+      customServiceName: booking.custom_service_name ?? "",
+      customDurationMinutes: String(
+        booking.custom_duration_minutes && booking.custom_duration_minutes > 0
+          ? booking.custom_duration_minutes
+          : 60,
+      ),
       notes: booking.notes ?? "",
       status: booking.status,
     });
@@ -858,12 +876,17 @@ export default function AdminPage() {
 
   async function saveCalendarBooking() {
     if (!supabase) return;
-    if (
-      !addBookingForm.clientName.trim() ||
-      !addBookingForm.clientEmail.trim() ||
-      !addBookingForm.serviceId
-    ) {
-      setMessage("Add client name, email, and service.");
+    if (!addBookingForm.clientName.trim() || !addBookingForm.clientEmail.trim()) {
+      setMessage("Add client name and email.");
+      return;
+    }
+    const isCustom = addBookingForm.bookingKind === "custom";
+    if (isCustom && !addBookingForm.customServiceName.trim()) {
+      setMessage("Add a custom service / appointment name.");
+      return;
+    }
+    if (!isCustom && !addBookingForm.serviceId) {
+      setMessage("Select a service, or switch to a custom appointment.");
       return;
     }
     if (!addBookingForm.time.trim()) {
@@ -874,14 +897,26 @@ export default function AdminPage() {
     const timeNorm =
       rawTime.length === 5 ? `${rawTime}:00` : rawTime.length >= 8 ? rawTime : `${rawTime}:00`;
 
-    const svc = services.find((item) => item.id === addBookingForm.serviceId);
-    const tr = svc?.treatments.find((t) => t.id === addBookingForm.treatmentId);
-    const durationMinutes =
-      tr?.duration_minutes != null && tr.duration_minutes > 0
-        ? tr.duration_minutes
-        : svc != null && svc.duration_minutes > 0
-          ? svc.duration_minutes
-          : 45;
+    let durationMinutes = 45;
+    let customDuration: number | null = null;
+    if (isCustom) {
+      const parsed = Number.parseInt(addBookingForm.customDurationMinutes, 10);
+      if (!Number.isFinite(parsed) || parsed < 5 || parsed > 24 * 60) {
+        setMessage("Custom duration must be between 5 and 1440 minutes.");
+        return;
+      }
+      durationMinutes = parsed;
+      customDuration = parsed;
+    } else {
+      const svc = services.find((item) => item.id === addBookingForm.serviceId);
+      const tr = svc?.treatments.find((t) => t.id === addBookingForm.treatmentId);
+      durationMinutes =
+        tr?.duration_minutes != null && tr.duration_minutes > 0
+          ? tr.duration_minutes
+          : svc != null && svc.duration_minutes > 0
+            ? svc.duration_minutes
+            : 45;
+    }
 
     const bufferMinutes = settings.buffer_minutes ?? 10;
     const timeCheck =
@@ -909,8 +944,12 @@ export default function AdminPage() {
       client_name: addBookingForm.clientName.trim(),
       client_email: addBookingForm.clientEmail.trim(),
       client_phone: addBookingForm.clientPhone.trim() || null,
-      service_id: addBookingForm.serviceId,
-      treatment_id: addBookingForm.treatmentId || null,
+      service_id: isCustom ? null : addBookingForm.serviceId,
+      treatment_id: isCustom ? null : addBookingForm.treatmentId || null,
+      custom_service_name: isCustom
+        ? addBookingForm.customServiceName.trim()
+        : null,
+      custom_duration_minutes: isCustom ? customDuration : null,
       requested_date: addBookingForm.date,
       requested_time: timeNorm,
       notes: addBookingForm.notes.trim() || null,
@@ -1103,8 +1142,9 @@ export default function AdminPage() {
               Blocks use each service duration. Status colours: confirmed,
               pending, awaiting deposit (pending_payment), completed, cancelled.
               Click a booking to edit it, or an empty area in a day column to
-              add one. Use “Allow overlap” in the modal when you need a double
-              booking.
+              add one. Admins can choose a catalogue service or a custom
+              appointment name and duration. Use “Allow overlap” when you need
+              a double booking.
             </p>
             {bookingsThisWeek.length === 0 ? (
               <p className="mb-4 rounded-2xl bg-[#f1e6d6] px-4 py-3 text-sm font-medium text-[#6f5638]">
@@ -1246,7 +1286,7 @@ export default function AdminPage() {
                     Stripe deposits
                   </strong>
                   ), bookings list with edit/delete, weekly calendar with
-                  add/edit/hover, optional admin overlap when saving.
+                  add/edit/hover, custom admin appointments, optional overlap.
                 </li>
                 <li className="pl-1">
                   Emails via Resend (client + clinic); .ics download &amp; Google
@@ -1929,7 +1969,7 @@ export default function AdminPage() {
             <p className="mt-2 text-sm text-[#776b5f]">
               {editingBookingId
                 ? "Update this appointment, then save. Calendar and emails refresh after save."
-                : "Creates an appointment in Supabase and refreshes the calendar."}
+                : "Creates an appointment in Supabase and refreshes the calendar. Custom appointments are admin-only."}
             </p>
             <div className="mt-5 grid gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -1985,75 +2025,144 @@ export default function AdminPage() {
                   }))
                 }
               />
-              <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                Service
-                <select
-                  value={addBookingForm.serviceId}
-                  onChange={(event) => {
-                    const serviceId = event.target.value;
-                    const svc = services.find((item) => item.id === serviceId);
-                    const nextTreatment =
-                      svc?.treatments.find((treatment) => treatment.active)?.id ??
-                      svc?.treatments[0]?.id ??
-                      "";
-                    setAddBookingForm((current) => ({
-                      ...current,
-                      serviceId,
-                      treatmentId: nextTreatment,
-                    }));
-                  }}
-                  className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
-                >
-                  <option value="">Select service</option>
-                  {services
-                    .filter(
-                      (service) =>
-                        service.active || service.id === addBookingForm.serviceId,
-                    )
-                    .map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name}
-                        {!service.active ? " (inactive)" : ""}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                Treatment (optional)
-                <select
-                  value={addBookingForm.treatmentId}
-                  onChange={(event) =>
-                    setAddBookingForm((current) => ({
-                      ...current,
-                      treatmentId: event.target.value,
-                    }))
-                  }
-                  className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
-                >
-                  <option value="">—</option>
-                  {services
-                    .find((item) => item.id === addBookingForm.serviceId)
-                    ?.treatments.filter(
-                      (treatment) =>
-                        treatment.active ||
-                        treatment.id === addBookingForm.treatmentId,
-                    )
-                    .map((treatment) => (
-                      <option key={treatment.id} value={treatment.id}>
-                        {[
-                          treatment.name,
-                          treatment.price_label,
-                          treatment.duration_minutes != null
-                            ? `${treatment.duration_minutes} min`
-                            : null,
-                          !treatment.active ? "(inactive)" : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <fieldset className="grid gap-2">
+                <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                  Appointment type
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAddBookingForm((current) => ({
+                        ...current,
+                        bookingKind: "catalogue",
+                      }))
+                    }
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                      addBookingForm.bookingKind === "catalogue"
+                        ? "bg-[#111820] text-[#fffaf2]"
+                        : "border border-[#dfcfb9] bg-[#fffaf2] text-[#6f5638]"
+                    }`}
+                  >
+                    Catalogue service
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAddBookingForm((current) => ({
+                        ...current,
+                        bookingKind: "custom",
+                      }))
+                    }
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                      addBookingForm.bookingKind === "custom"
+                        ? "bg-[#111820] text-[#fffaf2]"
+                        : "border border-[#dfcfb9] bg-[#fffaf2] text-[#6f5638]"
+                    }`}
+                  >
+                    Custom appointment
+                  </button>
+                </div>
+              </fieldset>
+              {addBookingForm.bookingKind === "custom" ? (
+                <>
+                  <AdminInput
+                    label="Custom service / appointment name"
+                    value={addBookingForm.customServiceName}
+                    onChange={(value) =>
+                      setAddBookingForm((current) => ({
+                        ...current,
+                        customServiceName: value,
+                      }))
+                    }
+                  />
+                  <AdminInput
+                    label="Duration (minutes)"
+                    type="number"
+                    value={addBookingForm.customDurationMinutes}
+                    onChange={(value) =>
+                      setAddBookingForm((current) => ({
+                        ...current,
+                        customDurationMinutes: value,
+                      }))
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                    Service
+                    <select
+                      value={addBookingForm.serviceId}
+                      onChange={(event) => {
+                        const serviceId = event.target.value;
+                        const svc = services.find((item) => item.id === serviceId);
+                        const nextTreatment =
+                          svc?.treatments.find((treatment) => treatment.active)
+                            ?.id ??
+                          svc?.treatments[0]?.id ??
+                          "";
+                        setAddBookingForm((current) => ({
+                          ...current,
+                          serviceId,
+                          treatmentId: nextTreatment,
+                        }));
+                      }}
+                      className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                    >
+                      <option value="">Select service</option>
+                      {services
+                        .filter(
+                          (service) =>
+                            service.active ||
+                            service.id === addBookingForm.serviceId,
+                        )
+                        .map((service) => (
+                          <option key={service.id} value={service.id}>
+                            {service.name}
+                            {!service.active ? " (inactive)" : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
+                    Treatment (optional)
+                    <select
+                      value={addBookingForm.treatmentId}
+                      onChange={(event) =>
+                        setAddBookingForm((current) => ({
+                          ...current,
+                          treatmentId: event.target.value,
+                        }))
+                      }
+                      className="rounded-2xl border border-[#dfcfb9] bg-[#f6f0e7] px-4 py-3 text-sm font-semibold normal-case tracking-normal text-[#2a211b] outline-none transition focus:border-[#b9945b]"
+                    >
+                      <option value="">—</option>
+                      {services
+                        .find((item) => item.id === addBookingForm.serviceId)
+                        ?.treatments.filter(
+                          (treatment) =>
+                            treatment.active ||
+                            treatment.id === addBookingForm.treatmentId,
+                        )
+                        .map((treatment) => (
+                          <option key={treatment.id} value={treatment.id}>
+                            {[
+                              treatment.name,
+                              treatment.price_label,
+                              treatment.duration_minutes != null
+                                ? `${treatment.duration_minutes} min`
+                                : null,
+                              !treatment.active ? "(inactive)" : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </>
+              )}
               <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
                 Status
                 <select
@@ -2261,14 +2370,7 @@ function bookingBlockDurationMinutes(
   booking: Booking,
   services: ServiceWithTreatments[],
 ): number {
-  const service = services.find((item) => item.id === booking.service_id);
-  if (!service) return 45;
-  const treatment = service.treatments.find(
-    (item) => item.id === booking.treatment_id,
-  );
-  return (
-    treatment?.duration_minutes ?? service.duration_minutes ?? 45
-  );
+  return durationMinutesForBookingRow(booking, services);
 }
 
 function BookingHoverCard({
@@ -2565,6 +2667,16 @@ function WeeklyCalendarGrid({
 }
 
 function serviceLabel(booking: Booking, services: ServiceWithTreatments[]) {
+  if (booking.custom_service_name?.trim()) {
+    const mins =
+      booking.custom_duration_minutes != null &&
+      booking.custom_duration_minutes > 0
+        ? `${booking.custom_duration_minutes} min`
+        : null;
+    return mins
+      ? `${booking.custom_service_name.trim()} (${mins})`
+      : booking.custom_service_name.trim();
+  }
   const service = services.find((item) => item.id === booking.service_id);
   const treatment = service?.treatments.find(
     (item) => item.id === booking.treatment_id,

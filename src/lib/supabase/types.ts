@@ -57,6 +57,10 @@ export type Booking = {
   client_phone: string | null;
   service_id: string | null;
   treatment_id: string | null;
+  /** Admin-only freeform label when not using a catalogue service */
+  custom_service_name?: string | null;
+  /** Admin-only duration override / custom appointment length */
+  custom_duration_minutes?: number | null;
   requested_date: string;
   requested_time: string;
   notes: string | null;

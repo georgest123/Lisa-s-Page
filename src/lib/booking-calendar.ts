@@ -180,35 +180,50 @@ export async function loadBookingDetailsForCalendar(
 
   if (error || !booking) return null;
 
+  const typed = booking as Booking;
+
   let serviceName = "Treatment";
   let serviceDurationMinutes: number | null = null;
-  if (booking.service_id) {
+  if (typed.custom_service_name?.trim()) {
+    serviceName = typed.custom_service_name.trim();
+  }
+  if (typed.custom_duration_minutes != null && typed.custom_duration_minutes > 0) {
+    serviceDurationMinutes = typed.custom_duration_minutes;
+  }
+
+  if (typed.service_id) {
     const { data: svc } = await supabase
       .from("services")
       .select("name, duration_minutes")
-      .eq("id", booking.service_id)
+      .eq("id", typed.service_id)
       .maybeSingle();
-    if (svc?.name) serviceName = svc.name;
-    serviceDurationMinutes = svc?.duration_minutes ?? null;
+    if (!typed.custom_service_name?.trim() && svc?.name) {
+      serviceName = svc.name;
+    }
+    if (serviceDurationMinutes == null) {
+      serviceDurationMinutes = svc?.duration_minutes ?? null;
+    }
   }
 
   let treatmentName: string | null = null;
   let treatmentDurationMinutes: number | null = null;
-  if (booking.treatment_id) {
+  if (typed.treatment_id) {
     const { data: tr } = await supabase
       .from("treatments")
       .select("name, duration_minutes")
-      .eq("id", booking.treatment_id)
+      .eq("id", typed.treatment_id)
       .maybeSingle();
     if (tr?.name) treatmentName = tr.name;
     treatmentDurationMinutes = tr?.duration_minutes ?? null;
   }
 
   return {
-    booking: booking as Booking,
+    booking: typed,
     serviceName,
-    treatmentName,
+    treatmentName: typed.custom_service_name?.trim() ? null : treatmentName,
     serviceDurationMinutes,
-    treatmentDurationMinutes,
+    treatmentDurationMinutes: typed.custom_duration_minutes != null
+      ? null
+      : treatmentDurationMinutes,
   };
 }
