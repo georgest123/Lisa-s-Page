@@ -1269,7 +1269,7 @@ export default function AdminPage() {
               <ul className="mb-6 grid list-disc gap-2 pl-5 text-sm leading-relaxed text-[#4e463d] marker:text-[#9b7a45]">
                 <li className="pl-1">
                   Marketing homepage from Supabase (services, treatments, imagery,
-                  dynamic hours matching{" "}
+                  brochure QR, dynamic hours matching{" "}
                   <strong className="font-semibold text-[#2a211b]">
                     Weekly availability
                   </strong>
@@ -1277,50 +1277,51 @@ export default function AdminPage() {
                 </li>
                 <li className="pl-1">
                   Public <strong className="font-semibold text-[#2a211b]">/book</strong>{" "}
-                  with slots blocked by treatment duration + buffer; instant booking
-                  mode.
+                  with overlap prevention (duration + buffer), £25 Stripe deposits, and
+                  confirmation email after booking / payment.
                 </li>
                 <li className="pl-1">
-                  Admin scheduling studio: OTP login, CRUD services/treatments with
-                  duration &amp; price labels, images, booking rules (including{" "}
+                  Scheduling studio: OTP login; services/treatments CRUD; edit bookings
+                  from the list or calendar;{" "}
                   <strong className="font-semibold text-[#2a211b]">
-                    Stripe deposits
-                  </strong>
-                  ), bookings list with edit/delete, weekly calendar with
-                  add/edit/hover, custom admin appointments, optional overlap.
-                </li>
-                <li className="pl-1">
-                  Emails via Resend (client + clinic); SMS confirmation via Twilio
-                  when a phone number is on the booking; .ics download &amp; Google
-                  Calendar links; optional{" "}
-                  <strong className="font-semibold text-[#2a211b]">
-                    Google Calendar API
+                    custom appointments
                   </strong>{" "}
-                  sync when env vars are set.
+                  (freeform name + duration); optional{" "}
+                  <strong className="font-semibold text-[#2a211b]">Allow overlap</strong>
+                  ; overlapping blocks show{" "}
+                  <strong className="font-semibold text-[#2a211b]">side by side</strong>.
                 </li>
                 <li className="pl-1">
-                  Stripe Checkout for deposits (webhook confirms booking); credits /
-                  built-by page linked from the footer.
+                  Notifications: Resend emails (client + clinic); Twilio SMS confirmation
+                  when a phone number is present;{" "}
+                  <strong className="font-semibold text-[#2a211b]">
+                    day-before reminder emails
+                  </strong>{" "}
+                  via daily cron; .ics / Google Calendar links; optional Google Calendar
+                  API sync.
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Policies</strong>{" "}
-                  tab: editable client-facing policies (accordion on the homepage when
-                  active).
+                  CMS on the homepage; credits / built-by page in the footer.
                 </li>
               </ul>
 
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#9b7a45]">
-                Checklist — production polish (if not already done)
+                Checklist — finish configuring (if not already done)
               </p>
               <ul className="mb-5 grid list-decimal gap-2 pl-5 text-sm leading-relaxed text-[#4e463d] marker:text-[#9b7a45]">
                 <li className="pl-1">
-                  <strong className="font-semibold text-[#2a211b]">Vercel:</strong>{" "}
+                  <strong className="font-semibold text-[#2a211b]">Vercel env:</strong>{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     NEXT_PUBLIC_SITE_URL
-                  </code>{" "}
-                  = your real domain (helps Stripe return URLs and emails).{" "}
+                  </code>
+                  ,{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     RESEND_API_KEY
+                  </code>
+                  ,{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    BOOKING_EMAIL_FROM
                   </code>
                   ,{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
@@ -1328,17 +1329,9 @@ export default function AdminPage() {
                   </code>
                   ,{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    BOOKING_EMAIL_FROM
+                    CRON_SECRET
                   </code>
-                  ; for deposits{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    STRIPE_SECRET_KEY
-                  </code>
-                  ,{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    STRIPE_WEBHOOK_SECRET
-                  </code>
-                  . See{" "}
+                  , Stripe keys, and Twilio keys. See{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     .env.example
                   </code>
@@ -1346,69 +1339,56 @@ export default function AdminPage() {
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Resend:</strong>{" "}
-                  verify sending domain and replace test sender{" "}
+                  verify your sending domain and replace the test sender{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     onboarding@resend.dev
                   </code>{" "}
-                  when ready.
+                  so any client email can receive confirmations and reminders.
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Twilio SMS:</strong>{" "}
-                  set{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    TWILIO_ACCOUNT_SID
-                  </code>
-                  ,{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    TWILIO_AUTH_TOKEN
-                  </code>
-                  , and{" "}
+                  ensure{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     TWILIO_FROM_NUMBER
                   </code>{" "}
-                  in Vercel so clients with a phone number get a confirmation text.
+                  is set (plus Account SID + Auth Token) so confirmation texts send.
+                  Trial accounts can usually only text verified numbers.
+                </li>
+                <li className="pl-1">
+                  <strong className="font-semibold text-[#2a211b]">
+                    Reminders SQL:
+                  </strong>{" "}
+                  run{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    supabase/add_booking_reminders.sql
+                  </code>{" "}
+                  once if you have not already. Cron hits{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    /api/cron/booking-reminders
+                  </code>{" "}
+                  daily at 07:00 UTC.
+                </li>
+                <li className="pl-1">
+                  <strong className="font-semibold text-[#2a211b]">
+                    Custom bookings SQL:
+                  </strong>{" "}
+                  run{" "}
+                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
+                    supabase/add_admin_custom_bookings.sql
+                  </code>{" "}
+                  once if custom appointments fail to save.
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">Stripe:</strong>{" "}
-                  Dashboard → Emails → enable customer receipts for successful payments;
-                  webhook endpoint{" "}
+                  enable customer payment receipts; webhook{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     /api/stripe/webhook
                   </code>{" "}
-                  with{" "}
+                  for{" "}
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     checkout.session.completed
                   </code>
                   .
-                </li>
-                <li className="pl-1">
-                  <strong className="font-semibold text-[#2a211b]">Optional:</strong>{" "}
-                  Supabase database webhook on{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    bookings
-                  </code>{" "}
-                  →{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    POST /api/booking-notify
-                  </code>{" "}
-                  only if bookings can be created outside this app (prefer INSERT-only
-                  if using Stripe deposits — see{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/README.md
-                  </code>
-                  ).
-                </li>
-                <li className="pl-1">
-                  <strong className="font-semibold text-[#2a211b]">Policies:</strong>{" "}
-                  run{" "}
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/add_policies.sql
-                  </code>{" "}
-                  once if the Policies tab shows a database error (
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/README.md
-                  </code>
-                  ).
                 </li>
                 <li className="pl-1">
                   <strong className="font-semibold text-[#2a211b]">
@@ -1418,11 +1398,7 @@ export default function AdminPage() {
                   <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
                     supabase/ensure_google_calendar_sync.sql
                   </code>{" "}
-                  if columns missing (
-                  <code className="rounded bg-[#f1e6d6] px-1 py-0.5 text-xs">
-                    supabase/README.md
-                  </code>
-                  ).
+                  if columns are missing.
                 </li>
               </ul>
 
@@ -1431,7 +1407,7 @@ export default function AdminPage() {
               </p>
               <ul className="grid gap-3">
                 {[
-                  "SMS reminders (e.g. Twilio) before appointments.",
+                  "SMS day-before reminders (in addition to email).",
                   "Analytics (e.g. Plausible or GA4) on public pages only.",
                   "Customer accounts / login for booking history (larger change).",
                   "Reviews or testimonials section fed from Google or manual CMS.",
